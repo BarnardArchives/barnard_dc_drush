@@ -782,7 +782,7 @@ function drush_barnard_dc_generate_newspaper_csv($directory = '/home/BCIT/dsavag
  * @see includes/barnard_dc.drush_batch.inc
  */
 function _barnard_dc_create_derivatives($objects) {
-  require_once 'includes/barnard_dc.drush_batch');
+  require_once 'includes/barnard_dc.drush_batch';
   foreach ($objects as $pid) {
     $book = islandora_object_load($pid);
     $pages = array_keys(islandora_paged_content_get_pages($book));
