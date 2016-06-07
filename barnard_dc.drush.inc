@@ -15,14 +15,14 @@ require_once 'includes/barnard_dc.drush_helpers.inc';
  */
 function barnard_dc_drush_command() {
   return array(
-    'bc_islandora_purge_object' => array(
+    'barnard_dc_purge_object' => array(
       'description' => 'Purges an object from the repository.',
       'arguments' => array(
         'pids' => 'A comma-separated list of unique identifiers.',
       ),
       'aliases' => array('bcipo'),
     ),
-    'bc_islandora_ingest_newspapers' => array(
+    'barnard_dc_ingest_newspapers' => array(
       'description' => "Creates the parent issue object and uploads the pages as child objects. Requires the Drupal7 version of Islandora with tuque",
       'arguments' => array(
         'query_file' => 'The path to a CSV file that contains the information about the newspaper pages',
@@ -39,7 +39,7 @@ function barnard_dc_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'bc_islandora_ingest_books' => array(
+    'barnard_dc_ingest_books' => array(
       'description' => 'Ingests books.',
       'arguments' => array(
         'query_file' => 'A csv file containing information about the books to be ingested.',
@@ -57,7 +57,7 @@ function barnard_dc_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'bc_islandora_ingest_pubs' => array(
+    'barnard_dc_ingest_pubs' => array(
       'description' => 'Ingests student publications.',
       'arguments' => array(
         'md_file' => 'The metadata file.',
@@ -75,7 +75,7 @@ function barnard_dc_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'bc_islandora_ingest_ms' => array(
+    'barnard_dc_ingest_ms' => array(
       'description' => 'Ingests manuscripts.',
       'arguments' => array(
         'directory' => 'The directory in which the manuscript data/files are held.',
@@ -93,7 +93,7 @@ function barnard_dc_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'bc_islandora_generate_newspaper_csv' => array(
+    'barnard_dc_generate_newspaper_csv' => array(
       'description' => 'Generates csv files for ingesting newspapers.',
       'arguments' => array(
         'directory' => 'The directory containing image files.',
@@ -107,7 +107,7 @@ function barnard_dc_drush_command() {
       ),
       'aliases' => array('bcignc'),
     ),
-    'bc_islandora_generate_url_aliases' => array(
+    'barnard_dc_generate_url_aliases' => array(
       'examples' => array(
         'drush -u 1 bcigua',
       ),
@@ -115,13 +115,13 @@ function barnard_dc_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'bc_islandora_check_ocr' => array(
+    'barnard_dc_check_ocr' => array(
       'examples' => array(
         'drush -u 1 bcico',
       ),
       'aliases' => array('bcico'),
     ),
-    'bc_islandora_postprocess_manuscript' => array(
+    'barnard_dc_postprocess_manuscript' => array(
       'examples' => array(
         'drush bcippm',
       ),
@@ -130,7 +130,7 @@ function barnard_dc_drush_command() {
       ),
       'aliases' => array('bcippm'),
     ),
-    'bc_islandora_fix_pub_metadata' => array(
+    'barnard_dc_fix_pub_metadata' => array(
       'examples' => array(
         'drush bcifpm',
       ),
@@ -148,7 +148,7 @@ function barnard_dc_drush_command() {
  * @param string $pids
  *   The pid of the object to purge, or a comma-separated list of pids.
  */
-function drush_bc_islandora_purge_object($pids) {
+function drush_barnard_dc_purge_object($pids) {
   $tuque = new IslandoraTuque();
   foreach (explode(',', $pids) as $pid) {
     drush_log(dt('Purging object at pid = @pid...', array('@pid' => $pid)), 'ok');
@@ -167,7 +167,7 @@ function drush_bc_islandora_purge_object($pids) {
  * @param string $query_file
  *   A csv file containing data about the newspaper(s) to be ingested.
  */
-function drush_bc_islandora_ingest_newspapers($query_file) {
+function drush_barnard_dc_ingest_newspapers($query_file) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
@@ -190,7 +190,7 @@ function drush_bc_islandora_ingest_newspapers($query_file) {
         // Either purge, create, or overwrite (purge then create) the object,
         // depending which options were specified on the command line.
         if (drush_get_option('purge')) {
-          drush_bc_islandora_purge_object($issue_pid);
+          drush_barnard_dc_purge_object($issue_pid);
         }
         elseif (!islandora_object_load($issue_pid)) {
           try {
@@ -202,7 +202,7 @@ function drush_bc_islandora_ingest_newspapers($query_file) {
         }
         elseif (drush_get_option('overwrite-existing')) {
           try {
-            drush_bc_islandora_purge_object($issue_pid);
+            drush_barnard_dc_purge_object($issue_pid);
             create_issue_object($issue_pid, $data);
           }
           catch (Exception $e) {
@@ -218,7 +218,7 @@ function drush_bc_islandora_ingest_newspapers($query_file) {
         $page_pid = 'bc:bulletin-' . date('Ymd', strtotime($data[1])) . '-' . $data[3];
 
         if (drush_get_option('purge')) {
-          drush_bc_islandora_purge_object($page_pid);
+          drush_barnard_dc_purge_object($page_pid);
         }
         elseif (!islandora_object_load($page_pid)) {
           try {
@@ -230,7 +230,7 @@ function drush_bc_islandora_ingest_newspapers($query_file) {
         }
         elseif (drush_get_option('overwrite-existing')) {
           try {
-            drush_bc_islandora_purge_object($page_pid);
+            drush_barnard_dc_purge_object($page_pid);
             create_page_object($path_name, $data, $issue_pid, $page_pid, 'newspaper');
           }
           catch (Exception $e) {
@@ -246,7 +246,7 @@ function drush_bc_islandora_ingest_newspapers($query_file) {
 
   // Create derivatives.
   if (drush_get_option('derivatives')) {
-    _bc_islandora_create_derivatives($issues);
+    _barnard_dc_create_derivatives($issues);
   }
 }
 
@@ -256,7 +256,7 @@ function drush_bc_islandora_ingest_newspapers($query_file) {
  * @param string $query_file
  *   A csv file containing data about the newspaper(s) to be ingested.
  */
-function drush_bc_islandora_ingest_books($query_file) {
+function drush_barnard_dc_ingest_books($query_file) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
@@ -277,7 +277,7 @@ function drush_bc_islandora_ingest_books($query_file) {
     $book_pid = 'bc:yearbook-' . implode('.', $vol_parts);
     $pages = $data[12];
     if (drush_get_option('purge')) {
-      drush_bc_islandora_purge_object($book_pid);
+      drush_barnard_dc_purge_object($book_pid);
     }
     elseif (!islandora_object_load($book_pid)) {
       try {
@@ -290,7 +290,7 @@ function drush_bc_islandora_ingest_books($query_file) {
     }
     elseif (drush_get_option('overwrite-existing')) {
       try {
-        drush_bc_islandora_purge_object($book_pid);
+        drush_barnard_dc_purge_object($book_pid);
         create_book_object($book_pid, $data);
       }
       catch (Exception $e) {
@@ -314,7 +314,7 @@ function drush_bc_islandora_ingest_books($query_file) {
           $page_pid = $book_pid . '-' . $page_number;
           if (drush_get_option('overwrite-existing') || drush_get_option('purge')) {
             try {
-              drush_bc_islandora_purge_object($page_pid);
+              drush_barnard_dc_purge_object($page_pid);
             }
             catch (Exception $e) {
               drush_log(dt('Caught exception: @e', array('@e' => $e->getMessage())), 'warning');
@@ -329,7 +329,7 @@ function drush_bc_islandora_ingest_books($query_file) {
 
     // Create derivatives.
     if (drush_get_option('derivatives')) {
-      _bc_islandora_create_derivatives($books);
+      _barnard_dc_create_derivatives($books);
     }
   }
 }
@@ -340,7 +340,7 @@ function drush_bc_islandora_ingest_books($query_file) {
  * @param string $directory
  *   The directory containing publications to ingest.
  */
-function drush_bc_islandora_ingest_pubs($directory) {
+function drush_barnard_dc_ingest_pubs($directory) {
   $pub_id = drush_get_option('id');
   $purge = drush_get_option('purge');
 
@@ -356,7 +356,7 @@ function drush_bc_islandora_ingest_pubs($directory) {
       if (!is_dir($path) || preg_match('/^\./', $file) !== 0 || !file_exists($xml_file)) {
         continue;
       }
-      $pub_data = _bc_islandora_pub_data($xml_file);
+      $pub_data = _barnard_dc_pub_data($xml_file);
       $pid_title = str_replace(' ', '-', preg_replace('/[^a-z\d\s+]/', '', strtolower($pub_data['title'])));
       $pub_pid = 'bc:' . $pid_title;
       // Publication ids that constitute "exceptions" (different behavior
@@ -368,12 +368,12 @@ function drush_bc_islandora_ingest_pubs($directory) {
         create_pub_object($pub_pid, $pub_data);
       }
       elseif ($exception) {
-        $collection_pid = variable_get('bc_islandora_pubs_pid', 'islandora:1022');
+        $collection_pid = variable_get('barnard_dc_pubs_pid', 'islandora:1022');
         if (!$purge) {
-          $book_pid = create_book_object($pub_pid, _bc_islandora_pub_data($xml_file, $collection_pid));
+          $book_pid = create_book_object($pub_pid, _barnard_dc_pub_data($xml_file, $collection_pid));
         }
         else {
-          drush_bc_islandora_purge_object($pub_pid);
+          drush_barnard_dc_purge_object($pub_pid);
         }
       }
       $pub_obj = islandora_object_load($pub_pid);
@@ -384,7 +384,7 @@ function drush_bc_islandora_ingest_pubs($directory) {
           if (!isset($book_pid)) {
             $book_pid = $pub_pid;
           }
-          _bc_islandora_process_pub_pages($book_pid, $xml_file, $path, $purge);
+          _barnard_dc_process_pub_pages($book_pid, $xml_file, $path, $purge);
         }
         // If non-exceptional, do the normal thing (TODO reverse this order?)
         else {
@@ -396,7 +396,7 @@ function drush_bc_islandora_ingest_pubs($directory) {
             if ((!is_dir($subpath) || preg_match('/^\./', $subdir) !== 0 || !file_exists($xml_file)) && !$exception) {
               continue;
             }
-            $book_data = _bc_islandora_pub_data($xml_file, $pub_pid, 'book');
+            $book_data = _barnard_dc_pub_data($xml_file, $pub_pid, 'book');
             $issue_pid = implode('-', array($pub_pid, $book_data['date']));
             print "Got pid: $issue_pid\n";
             if (!islandora_object_load($issue_pid)) {
@@ -404,7 +404,7 @@ function drush_bc_islandora_ingest_pubs($directory) {
             }
             $issue_obj = islandora_object_load($issue_pid);
             // Create a page object for each page.
-            _bc_islandora_process_pub_pages($issue_pid, $xml_file, $subpath, $purge);
+            _barnard_dc_process_pub_pages($issue_pid, $xml_file, $subpath, $purge);
           }
         }
       }
@@ -415,7 +415,7 @@ function drush_bc_islandora_ingest_pubs($directory) {
 /**
  * Helper function: returns structured data about a publication.
  */
-function _bc_islandora_pub_data($xml_file, $pid = '', $type = '', $page_number = '') {
+function _barnard_dc_pub_data($xml_file, $pid = '', $type = '', $page_number = '') {
   $xml = file_get_contents($xml_file);
   $mods = simplexml_load_string($xml);
   $data = array(
@@ -437,14 +437,14 @@ function _bc_islandora_pub_data($xml_file, $pid = '', $type = '', $page_number =
 /**
  * Helper function: processes (ingests or purges) publication pages.
  */
-function _bc_islandora_process_pub_pages($parent_pid, $parent_xml_file, $path, $purge = FALSE) {
+function _barnard_dc_process_pub_pages($parent_pid, $parent_xml_file, $path, $purge = FALSE) {
   foreach (scandir($path) as $page) {
     if (preg_match('/^\./', $page) === 0 && preg_match('/\.tif$/', $page) !== 0) {
       $page_file = $path . '/' . $page;
       $page_number_padded = str_replace('.tif', '', end(explode('_', $page)));
       $page_number = preg_replace('/^0+/', '', $page_number_padded);
       $page_pid = $parent_pid . '-' . $page_number;
-      $page_data = _bc_islandora_pub_data($parent_xml_file, $issue_pid, 'page', $page_number);
+      $page_data = _barnard_dc_pub_data($parent_xml_file, $issue_pid, 'page', $page_number);
       $page_data['page_number'] = $page_number;
       $page_data['title'] .= ', page ' . $page_number;
       if (!islandora_object_load($page_pid) && !$purge) {
@@ -453,7 +453,7 @@ function _bc_islandora_process_pub_pages($parent_pid, $parent_xml_file, $path, $
         create_page_object($page_file, $page_data, $parent_pid, $page_pid, 'pub');
       }
       elseif ($purge) {
-        drush_bc_islandora_purge_object($page_pid);
+        drush_barnard_dc_purge_object($page_pid);
       }
     }
   }
@@ -462,7 +462,7 @@ function _bc_islandora_process_pub_pages($parent_pid, $parent_xml_file, $path, $
 /**
  * Ingests manuscripts.
  */
-function drush_bc_islandora_ingest_ms($md_file) {
+function drush_barnard_dc_ingest_ms($md_file) {
   if (file_exists($md_file)) {
     $md_fh = fopen($md_file, 'r');
     while (($data = fgetcsv($md_fh)) !== FALSE) {
@@ -493,12 +493,12 @@ function drush_bc_islandora_ingest_ms($md_file) {
           $ms_data['topic_uri'] = $data[14];
         }
 
-        $ms_pid = _bc_islandora_ms_pid($ms_data['title']);
+        $ms_pid = _barnard_dc_ms_pid($ms_data['title']);
 
         if (!islandora_object_load($ms_pid)) {
-          $ms_data['collection_pid'] = variable_get('bc_islandora_manuscripts_pid', 'islandora:manuscriptCollection');
+          $ms_data['collection_pid'] = variable_get('barnard_dc_manuscripts_pid', 'islandora:manuscriptCollection');
           $ms_data['cm_pid'] = 'islandora:manuscriptCModel';
-          $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
+          $ms_data['xml'] = _barnard_dc_ms_mods($ms_data);
           create_pub_object($ms_pid, $ms_data);
         }
         else {
@@ -516,7 +516,7 @@ function drush_bc_islandora_ingest_ms($md_file) {
             $ms_data['title'] = $data[1] . ', page ' . $page_number;
             $ms_data['cm_pid'] = $ms_pid;
             $ms_data['type'] = 'page';
-            $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
+            $ms_data['xml'] = _barnard_dc_ms_mods($ms_data);
 
             if (!islandora_object_load($page_pid)) {
               create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_pid, $page_pid, 'ms');
@@ -526,7 +526,7 @@ function drush_bc_islandora_ingest_ms($md_file) {
             }
           }
         }
-        _bc_islandora_ms_transcript($ms_pid);
+        _barnard_dc_ms_transcript($ms_pid);
       }
     }
   }
@@ -539,7 +539,7 @@ function drush_bc_islandora_ingest_ms($md_file) {
 /**
  * Helper function: generate manuscript pid.
  */
-function _bc_islandora_ms_pid($ms_title) {
+function _barnard_dc_ms_pid($ms_title) {
   $ms_pid = 'bcrw:' . str_replace(' ', '-', preg_replace('/[^a-z\d\s+]/', '', strtolower($ms_title)));
 
   if (strlen($ms_pid) >= 60) {
@@ -548,7 +548,7 @@ function _bc_islandora_ms_pid($ms_title) {
 
   if (strlen($ms_pid) >= 60) {
     drush_log(dt("The pid you chose is too long! :("), 'error');
-    $ms_pid = _bc_islandora_ms_pid($ms_title);
+    $ms_pid = _barnard_dc_ms_pid($ms_title);
   }
   return $ms_pid;
 }
@@ -556,7 +556,7 @@ function _bc_islandora_ms_pid($ms_title) {
 /**
  * Helper function: generate manuscript MODS.
  */
-function _bc_islandora_ms_mods($ms_data) {
+function _barnard_dc_ms_mods($ms_data) {
   if (isset($ms_data['type']) && $ms_data['type'] == 'page') {
     $date_xml = '<originInfo>';
   }
@@ -699,7 +699,7 @@ function _bc_islandora_ms_mods($ms_data) {
   return $mods_xml;
 }
 
-function _bc_islandora_ms_transcript($ms_pid) {
+function _barnard_dc_ms_transcript($ms_pid) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   $ms_obj = islandora_object_load($ms_pid);
   if (isset($ms_obj['TRANSCRIPT'])) {
@@ -730,7 +730,7 @@ function _bc_islandora_ms_transcript($ms_pid) {
 /**
  * Generates csv files for ingesting newspapers.
  */
-function drush_bc_islandora_generate_newspaper_csv($directory = '/home/BCIT/dsavage/bulletin') {
+function drush_barnard_dc_generate_newspaper_csv($directory = '/home/BCIT/dsavage/bulletin') {
   $year = drush_get_option('year');
   $month = drush_get_option('month');
   $filename = $year && $month ? "$year-$month" : ($year ? "$year" : '');
@@ -781,15 +781,15 @@ function drush_bc_islandora_generate_newspaper_csv($directory = '/home/BCIT/dsav
  *
  * @see includes/barnard_dc.drush_batch.inc
  */
-function _bc_islandora_create_derivatives($objects) {
-  module_load_include('inc', 'bc_islandora', 'includes/barnard_dc.drush_batch');
+function _barnard_dc_create_derivatives($objects) {
+  require_once 'includes/barnard_dc.drush_batch');
   foreach ($objects as $pid) {
     $book = islandora_object_load($pid);
     $pages = array_keys(islandora_paged_content_get_pages($book));
     // $img_batch = islandora_paged_content_create_images_batch($book, $pages);
-    $img_batch = bc_islandora_create_images_batch($book, $pages);
+    $img_batch = barnard_dc_create_images_batch($book, $pages);
     // $pdf_batch = islandora_paged_content_create_pdf_batch($book, $pages);
-    $pdf_batch = bc_islandora_create_pdf_batch($book, $pages);
+    $pdf_batch = barnard_dc_create_pdf_batch($book, $pages);
     $ocr_batch = islandora_paged_content_create_ocr_batch($book, $pages, array('language' => 'eng', 'preprocess' => FALSE));
     batch_set($img_batch);
     batch_set($pdf_batch);
@@ -803,7 +803,7 @@ function _bc_islandora_create_derivatives($objects) {
  *
  * (Requires islandora_pathauto module.)
  */
-function drush_bc_islandora_generate_url_aliases() {
+function drush_barnard_dc_generate_url_aliases() {
   $everything_query = <<<SPARQL
     SELECT DISTINCT ?object
     FROM <#ri>
@@ -840,7 +840,7 @@ SPARQL;
 /**
  * Checks if book page objects have (H)OCR datastreams.
  */
-function drush_bc_islandora_check_ocr($collection_pid = 'islandora:bookCollection') {
+function drush_barnard_dc_check_ocr($collection_pid = 'islandora:bookCollection') {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   // SPARQL query for isMemberOf book collection and hasModel bookCModel.
   $query = <<<EOQ
@@ -877,7 +877,7 @@ EOQ;
 }
 
 
-function drush_bc_islandora_postprocess_manuscript($pid = NULL) {
+function drush_barnard_dc_postprocess_manuscript($pid = NULL) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
 
   $pids = array();
@@ -1045,7 +1045,7 @@ function _ms_default_mods($ms_obj) {
 MODS;
 }
 
-function drush_bc_islandora_fix_pub_metadata($pid) {
+function drush_barnard_dc_fix_pub_metadata($pid) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
 
   $pub_obj = islandora_object_load($pid);
