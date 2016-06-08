@@ -121,15 +121,6 @@ function barnard_dc_drush_command() {
       ),
       'aliases' => array('bcico'),
     ),
-    'barnard_dc_postprocess_manuscript' => array(
-      'examples' => array(
-        'drush bcippm',
-      ),
-      'arguments' => array(
-        'pid' => 'The pid of the object to process.',
-      ),
-      'aliases' => array('bcippm'),
-    ),
     'barnard_dc_fix_pub_metadata' => array(
       'examples' => array(
         'drush bcifpm',
@@ -465,11 +456,21 @@ function _barnard_dc_process_pub_pages($parent_pid, $parent_xml_file, $path, $pu
 function drush_barnard_dc_ingest_ms($md_file) {
   if (file_exists($md_file)) {
     $md_fh = fopen($md_file, 'r');
+    $id_option = drush_get_option('id');
     while (($data = fgetcsv($md_fh)) !== FALSE) {
       $ms_data = array();
       $ms_data['id'] = $data[0];
+      // Skip this row if we got an id option and this id doesn't match.
+      if ($id_option && $id_option != $ms_data['id']) {
+        continue;
+      }
       $ms_data_dir = dirname($md_file) . '/' . $ms_data['id'];
       if (is_dir($ms_data_dir)) {
+        $continue = drush_prompt(dt("Entering directory: @dir. Continue?", array('@dir' => $ms_data_dir)));
+        // Continue unless we got a response like "no" or "N"
+        if (preg_match('/^n/', strtolower($continue)) === 1) {
+          continue;
+        }
         $ms_data['title'] = $data[1];
         $ms_mods_file = $ms_data_dir . '/' . $ms_data['id'] . '.xml';
         if (file_exists($ms_mods_file)) {
@@ -499,13 +500,15 @@ function drush_barnard_dc_ingest_ms($md_file) {
           $ms_data['collection_pid'] = variable_get('barnard_dc_manuscripts_pid', 'islandora:manuscriptCollection');
           $ms_data['cm_pid'] = 'islandora:manuscriptCModel';
           $ms_data['xml'] = _barnard_dc_ms_mods($ms_data);
-          create_pub_object($ms_pid, $ms_data);
+          // $ms_parent_pid = create_pub_object($ms_pid, $ms_data);
+          $ms_parent_pid = create_pub_object('bcrw', $ms_data);
         }
         else {
           drush_log(dt('Object exists: @ms_pid', array('@ms_pid' => $ms_pid)), 'ok');
         }
 
         foreach (scandir($ms_data_dir) as $ms_file) {
+          var_export($ms_file);
           if (preg_match('/\.tif$/', $ms_file)) {
             $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
             $page_number = preg_replace('/^0+/', '', $page_padded);
@@ -518,15 +521,16 @@ function drush_barnard_dc_ingest_ms($md_file) {
             $ms_data['type'] = 'page';
             $ms_data['xml'] = _barnard_dc_ms_mods($ms_data);
 
+            // TODO this is redundant now. Find another way to check if page exists?
             if (!islandora_object_load($page_pid)) {
-              create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_pid, $page_pid, 'ms');
+              create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_parent_pid, 'bcrw', 'ms');
             }
             else {
               drush_log(dt('Object exists: @page_pid', array('@page_pid' => $page_pid)), 'ok');
             }
           }
         }
-        _barnard_dc_ms_transcript($ms_pid);
+        _barnard_dc_ms_transcript($ms_parent_pid);
       }
     }
   }
@@ -540,7 +544,7 @@ function drush_barnard_dc_ingest_ms($md_file) {
  * Helper function: generate manuscript pid.
  */
 function _barnard_dc_ms_pid($ms_title) {
-  $ms_pid = 'bcrw:' . str_replace(' ', '-', preg_replace('/[^a-z\d\s+]/', '', strtolower($ms_title)));
+  /*$ms_pid = 'bcrw:' . str_replace(' ', '-', preg_replace('/[^a-z\d\s+]/', '', strtolower($ms_title)));
 
   if (strlen($ms_pid) >= 60) {
     $ms_pid = drush_prompt(dt("Got a long title: @ms_title. Enter pid: ", array('@ms_title' => $ms_title)));
@@ -550,7 +554,8 @@ function _barnard_dc_ms_pid($ms_title) {
     drush_log(dt("The pid you chose is too long! :("), 'error');
     $ms_pid = _barnard_dc_ms_pid($ms_title);
   }
-  return $ms_pid;
+  return $ms_pid;*/
+  return 'bcrw';
 }
 
 /**
@@ -701,30 +706,34 @@ function _barnard_dc_ms_mods($ms_data) {
 
 function _barnard_dc_ms_transcript($ms_pid) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
-  $ms_obj = islandora_object_load($ms_pid);
-  if (isset($ms_obj['TRANSCRIPT'])) {
-    drush_log(dt('Transcript already exists for object: @ms_pid', array('@ms_pid' => $ms_pid)), 'ok');
-    return;
-  }
-  else {
-    $ms_ts = '';
-  }
-  foreach (islandora_paged_content_get_pages($ms_obj) as $page_pid => $page_data) {
-    if ($page_obj = islandora_object_load($page_pid)) {
-      if ($page_ocr = islandora_datastream_load('OCR', $page_obj)) {
-        $ms_ts .= $page_ocr->getContent(NULL);
-      }
+  if ($ms_obj = islandora_object_load($ms_pid)) {
+    if (isset($ms_obj['TRANSCRIPT'])) {
+      drush_log(dt('Transcript already exists for object: @ms_pid', array('@ms_pid' => $ms_pid)), 'ok');
+      return;
     }
     else {
-      drush_log(dt("Couldn't get page: @page_pid", array('@page_pid' => $page_pid)), 'warning');
+      $ms_ts = '';
     }
+    foreach (islandora_paged_content_get_pages($ms_obj) as $page_pid => $page_data) {
+      if ($page_obj = islandora_object_load($page_pid)) {
+        if ($page_ocr = islandora_datastream_load('OCR', $page_obj)) {
+          $ms_ts .= $page_ocr->getContent(NULL);
+        }
+      }
+      else {
+        drush_log(dt("Couldn't get page: @page_pid", array('@page_pid' => $page_pid)), 'warning');
+      }
+    }    
+    // Create transcript datastream.
+    $transcript_ds = $ms_obj->constructDatastream('TRANSCRIPT');
+    $transcript_ds->label = 'Transcript';
+    $transcript_ds->mimetype = 'text/plain';
+    $transcript_ds->setContentFromString($ms_ts);
+    $ms_obj->ingestDatastream($transcript_ds);
   }
-  // Create transcript datastream.
-  $transcript_ds = $ms_obj->constructDatastream('TRANSCRIPT');
-  $transcript_ds->label = 'Transcript';
-  $transcript_ds->mimetype = 'text/plain';
-  $transcript_ds->setContentFromString($ms_ts);
-  $ms_obj->ingestDatastream($transcript_ds);
+  else {
+    drush_log(dt("Couldn't load object at pid = @pid", array('@pid' => $ms_pid)), 'error');
+  }
 }
 
 /**
@@ -872,101 +881,6 @@ EOQ;
           }
         }
       }
-    }
-  }
-}
-
-
-function drush_barnard_dc_postprocess_manuscript($pid = NULL) {
-  module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
-
-  $pids = array();
-  $tuque = islandora_get_tuque_connection();
-  $repo = $tuque->repository;
-
-  if (!$pid) {
-    $ms_pid = variable_get('bc_islandora_manuscripts_pid', 'islandora:manuscriptCollection');
-    // Get every member of the manuscript collection.
-    $query = <<<EOQ
-PREFIX islandora-rels-ext: <http://islandora.ca/ontology/relsext#>
-PREFIX fedora-rels-ext: <info:fedora/fedora-system:def/relations-external#>
-SELECT ?object
-FROM <#ri>
-WHERE {
-  ?object fedora-rels-ext:isMemberOfCollection <info:fedora/{$ms_pid}> ;
-}
-EOQ;
-    $results = $repo->ri->query($query, 'sparql');
-    foreach ($results as $r) {
-      if (isset($r['object']['value']) && $r['object']['type'] == 'pid') {
-        $pids[] = $r['object']['value'];
-      }
-    }
-  }
-  else {
-    $pids = explode(',', $pid);
-  }
-
-  foreach ($pids as $object_id) {
-    $obj_ocr = array();
-    if ($ms_obj = islandora_object_load($object_id)) {
-      $ms_mods = isset($ms_obj['MODS']) ? $ms_obj['MODS']->getContent(NULL) : NULL;
-      if (!$ms_mods) {
-        // Do something here.
-        drush_log(dt("Didn't get MODS; using default instead..."), 'ok');
-        $ms_mods = _ms_default_mods($ms_obj);
-      }
-      $obj_mods = simplexml_load_string($ms_mods);
-      $ms_title = $obj_mods->titleInfo->title;
-      if ($ms_obj->label != $ms_title) {
-        $ms_obj->label = $ms_title;
-      }
-      foreach (islandora_paged_content_get_pages($ms_obj) as $page) {
-        $page_obj = islandora_object_load($page['pid']);
-        drush_log(dt("Processing page: @page_pid", array('@page_pid' => $page['pid'])), 'ok');
-        // Do stuff to each page.
-        // 1. Fix title
-        $page_label = $ms_obj->label . ', page ' . $page['page'];
-        if ($page_obj->label != $page_label) {
-          drush_log(dt("Setting new label: @page_label", array('@page_label' => $page_label)), 'ok');
-          $page_obj->label = $page_label;
-        }
-        // 2. Fix MODS
-        if (!isset($page_obj['MODS'])) {
-          $obj_mods->titleInfo->title = $page_label;
-          $mods_id = $obj_mods->identifier;
-          $obj_mods->identifier = $mods_id . '-' . str_pad($page['page'], 3, '0', STR_PAD_LEFT);
-          $page_mods = $page_obj->constructDatastream('MODS');
-          $page_mods->content = $obj_mods->asXML();
-          $page_mods->mimetype = 'text/xml';
-          $page_mods->label = 'MODS record';
-          $page_obj->ingestDatastream($page_mods);
-        }
-        else {
-          drush_log(dt('Page-level MODS already exists; skipping step...'), 'ok');
-        }
-        // 3. Add OCR to array—and change OCR DS label if necessary.
-        if (isset($page_obj['OCR'])) {
-          $obj_ocr[] = $page_obj['OCR']->getContent(NULL);
-          if ($page_obj['OCR']->label != 'Transcript') {
-            print "Changing label :)\n";
-            $page_obj['OCR']->label = 'Transcript';
-          }
-        }
-      }
-      if (!isset($ms_obj['OCR'])) {
-        $obj_ocr_ds = $ms_obj->constructDatastream('OCR');
-        $obj_ocr_ds->label = 'Transcript';
-        $obj_ocr_ds->mimetype = 'text/plain';
-        $obj_ocr_ds->content = implode('', $obj_ocr);
-        $ms_obj->ingestDatastream($obj_ocr_ds);
-      }
-      else {
-        drush_log(dt('Object-level OCR already exists; skipping step...'), 'ok');
-      }
-    }
-    else {
-      drush_log(dt("Couldn't get pages at pid: @pid", array('@pid' => $object_pid)), 'error');
     }
   }
 }

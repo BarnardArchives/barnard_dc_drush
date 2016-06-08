@@ -314,6 +314,7 @@ function create_pub_object($pid, $data) {
 
   $tuque = islandora_get_tuque_connection();
   $connection = $tuque->connection;
+  $repository = $tuque->repository;
 
   $dsid = 'MODS';
 
@@ -334,7 +335,8 @@ function create_pub_object($pid, $data) {
   $proc->importStylesheet($transform_xsl);
   $dc = $proc->transformToXML($mods_xml);
 
-  $object = new NewFedoraObject($pid, $connection->repository);
+  // $object = new NewFedoraObject($pid, $connection->repository);
+  $object = $repository->constructObject($pid);
 
   $object->label = $data['title'];
 
@@ -342,7 +344,8 @@ function create_pub_object($pid, $data) {
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
-  $dc_datastream = new NewFedoraDatastream('DC', 'X', $object, $connection->repository);
+  //$dc_datastream = new NewFedoraDatastream('DC', 'X', $object, $connection->repository);
+  $dc_datastream = $object->constructDatastream('DC');
 
   $dc_datastream->content = $dc;
   $dc_datastream->mimetype = 'text/xml';
@@ -350,7 +353,8 @@ function create_pub_object($pid, $data) {
 
   $object->ingestDatastream($dc_datastream);
 
-  $mods_datastream = new NewFedoraDatastream('MODS', 'X', $object, $connection->repository);
+  // $mods_datastream = new NewFedoraDatastream('MODS', 'X', $object, $connection->repository);
+  $mods_datastream = $object->constructDatastream('MODS');
 
   $mods_datastream->setContentFromString($xml);
   $mods_datastream->mimetype = 'text/xml';
@@ -376,11 +380,12 @@ function create_pub_object($pid, $data) {
   else {
     drush_log(dt("There was an error creating the book object!\n", 'warning'));
   }
+  $return = $object->id;
   unset($object);
   unset($mods_datastream);
   unset($dc_datastream);
 
-  return $pid;
+  return $return;
 }
 
 /**
@@ -388,10 +393,12 @@ function create_pub_object($pid, $data) {
  */
 function create_page_object($file_path, $data, $collection_pid, $page_pid, $type) {
   $connection = islandora_get_tuque_connection();
+  $repository = $connection->repository;
 
   $pid = $page_pid;
 
-  $object = new NewFedoraObject($pid, $connection->repository);
+  // $object = new NewFedoraObject($pid, $connection->repository);
+  $object = $repository->constructObject($pid);
 
   // Set variables for MODS generation below. (Values differ depending on
   // $type.)
@@ -487,8 +494,10 @@ PAGE_MODS;
     $command = 'convert -quiet -thumbnail 200x200 ' . $file_name . ' ' . $tmp_file;
     exec($command, $exec_output, $exec_return);
     if ($exec_return == 0) {
-      $book_item = new FedoraObject($collection_pid, $connection->repository);
-      $tn_datastream = new NewFedoraDatastream('TN', 'M', $book_item, $connection->repository);
+      // $book_item = new FedoraObject($collection_pid, $connection->repository);
+      $book_item = $repository->constructObject($collection_pid);
+      // $tn_datastream = new NewFedoraDatastream('TN', 'M', $book_item, $connection->repository);
+      $tn_datastream = $book_item->constructDatastream('TN');
       $tn_datastream->setContentFromFile($tmp_file, FALSE);
       $tn_datastream->label = 'Thumbnail';
       $tn_datastream->mimetype = 'image/jpg';
@@ -547,7 +556,8 @@ PAGE_MODS;
 
   $object->label = $label;
 
-  $dc_datastream = new NewFedoraDatastream('DC', 'X', $object, $connection->repository);
+  // $dc_datastream = new NewFedoraDatastream('DC', 'X', $object, $connection->repository);
+  $dc_datastream = $object->constructDatastream('DC');
 
   $dc_datastream->content = $dc;
   $dc_datastream->mimetype = 'text/xml';
@@ -555,7 +565,8 @@ PAGE_MODS;
 
   $object->ingestDatastream($dc_datastream);
 
-  $mods_datastream = new NewFedoraDatastream('MODS', 'X', $object, $connection->repository);
+  // $mods_datastream = new NewFedoraDatastream('MODS', 'X', $object, $connection->repository);
+  $mods_datastream = $object->constructDatastream('MODS');
 
   $mods_datastream->content = $xml;
   $mods_datastream->mimetype = 'text/xml';
@@ -566,7 +577,8 @@ PAGE_MODS;
 
   $object->ingestDatastream($mods_datastream);
 
-  $image_datastream = new NewFedoraDatastream('OBJ', 'M', $object, $connection->repository);
+  // $image_datastream = new NewFedoraDatastream('OBJ', 'M', $object, $connection->repository);
+  $image_datastream = $object->constructDatastream('OBJ');
   $image_datastream->setContentFromFile($file_name, FALSE);
   // $image_datastream->label = 'TIFF image';
   $image_datastream->label = $label;
