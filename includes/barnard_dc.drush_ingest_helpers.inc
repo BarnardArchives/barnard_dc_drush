@@ -8,6 +8,175 @@
  * @see https://github.com/roblib/scripts/tree/master/drush/drupal7
  */
 
+function _barnard_dc_drush_generate_newspaper_csv($directory, $data) {
+  $year = $data['year'];
+  $month = $data['month'];
+  $filename = $year && $month ? "$year-$month" : ($year ? "$year" : '');
+  $filename .= 'pages.csv';
+  $csv = fopen("$directory/$filename", 'w');
+  $lines = array(
+    array("title", "date", "filename", "page number", "type", "extent"),
+  );
+  $issues = array();
+
+  foreach (scandir($directory) as $file) {
+    if (mime_content_type("$directory/$file") == 'image/tiff') {
+      $ts = strtotime(array_shift(explode('-', str_replace('BarnardBulletin-', '', $file))));
+      $day = date('d', $ts);
+      if ((!$month || ($month && date('m', $ts) == $month)) && (!$year || ($year && date('Y', $ts) == $year))) {
+        $extent_cmd = 'ls ' . $directory . '/BarnardBulletin-' . date('Ymd', $ts) . '*.tiff | wc -l';
+        $extent = trim(`$extent_cmd`);
+        $page = preg_replace('/^0+/', '', str_replace('.tiff', '', end(explode('-', $file))));
+        $date_title = date('F j, Y', $ts);
+        if ($page == 1) {
+          $lines[] = array(
+            "Barnard Bulletin, " . $date_title, $date_title,
+            '',
+            '',
+            'issue',
+            $extent,
+          );
+        }
+        $lines[] = array(
+          $date_title,
+          $date_title,
+          $file,
+          $page,
+          'page',
+          $extent,
+        );
+      }
+    }
+  }
+  foreach ($lines as $line) {
+    fputcsv($csv, $line);
+  }
+  fclose($csv);
+}
+
+/**
+ * Ingests a newspaper object. Can be invoked by drush_barnard_dc_ingest_objects().
+ *
+ * Sample CSV data:
+ * title,date,filename,"page number",type,extent
+ * "Barnard Bulletin, October 1, 1990","October 1, 1990",,,issue,24
+ */
+function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
+  module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
+  module_load_include('inc', 'islandora_paged_content', 'includes/batch');
+
+  // Is this necessary?
+  ini_set("auto_detect_line_endings", "1");
+
+  $path_name = dirname($query_file);
+  $fh = fopen($query_file, 'r');
+  $line_number = 0;
+  $issues = array();
+
+  while (($data = fgetcsv($fh)) !== FALSE) {
+    $line_number++;
+    // Only parse the data if we aren't on the first line, which contains
+    // column headings.
+    if ($line_number > 1) {
+      $type = $data[4];
+      if ($type == 'issue') {
+        // Sample issue pid: bc:bulletin-19901001.
+        $issue_pid = 'bc:bulletin-' . date('Ymd', strtotime($data[1]));
+
+        // If the issue doesn't exist, create it.
+        if (!islandora_object_load($issue_pid)) {
+          $issue_pid = create_issue_object($issue_pid, $data);
+        }
+        // If it exists, give the user the option to overwrite it.
+        // (N.B. this process will also allow the user to remove all
+        // associated issue pages.)
+        else {
+          $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
+          if (preg_match('/^y/', strtolower($continue)) === 1) {
+            drush_barnard_dc_purge_object($issue_pid);
+            $issue_pid = create_issue_object($issue_pid, $data);
+          }
+        }
+      }
+      elseif ($type == 'page') {
+        // Sample page pid: bc:bulletin-19901001-1.
+        $page_pid = 'bc:bulletin-' . date('Ymd', strtotime($data[1])) . '-' . $data[3];
+
+        if (!islandora_object_load($page_pid)) {
+          create_page_object($path_name, $data, $issue_pid, $page_pid, 'newspaper');
+        }
+        // If we got an existing page, just skip it without prompting.
+        else {
+          drush_log(dt('Page exists at pid = @pid; skipping...', array('@pid' => $page_pid)), 'warning');
+        }
+      }
+    }
+  }
+}
+
+function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
+  module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
+  module_load_include('inc', 'islandora_paged_content', 'includes/batch');
+
+  ini_set("auto_detect_line_endings", "1");
+
+  $fh = fopen($query_file, 'r');
+  $year = isset($options['year']) ? $options['year'] : NULL;
+  $books = array();
+
+  while (($data = fgetcsv($fh)) !== FALSE) {
+    $csv_year = $data[3];
+    if ($year && $year != $csv_year) {
+      continue;
+    }
+    // Some tricky stuff follows to handle books with multiple "volumes."
+    $vol_parts = explode(' ', $data[1]);
+    array_shift($vol_parts);
+    $book_pid = 'bc:yearbook-' . implode('.', $vol_parts);
+    $pages = $data[12];
+    
+    if (!islandora_object_load($book_pid)) {
+      drush_log("Creating book at pid = @pid", array('@pid' => $book_pid), 'ok');
+      $book_pid = create_book_object($book_pid, $data);
+    }
+    else {
+      // drush_log(dt('Issue exists at pid = @pid; skipping...', array('@pid' => $book_pid)), 'warning');
+      $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
+      if (preg_match('/^y/', strtolower($continue)) === 1) {
+        drush_barnard_dc_purge_object($issue_pid);
+        $book_pid = create_book_object($book_pid, $data);
+      }
+      else {
+        continue;
+      }
+    }
+    $books[] = $book_pid;
+
+    // Create each page.
+    $file_path = dirname($query_file) . '/' . $csv_year;
+    if (file_exists($file_path)) {
+      $files = explode("\n", `ls $file_path/*.jp2`);
+      foreach ($files as $fn) {
+        if (!empty($fn)) {
+          $page_number = preg_replace('/^0+/', '', preg_replace('/\.jp2$/', '', array_pop(explode('_', $fn))));
+          $data[] = $page_number;
+          $page_pid = $book_pid . '-' . $page_number;
+
+          if (!islandora_object_load($page_pid)) {
+            create_page_object($fn, $data, $book_pid, $page_pid, 'book');
+          }
+          else {
+            drush_log(dt("Page exists at pid = @pid. Skipping...", array('@pid' => $page_pid)), 'warning');
+          }
+        }
+      }
+    }
+    else {
+      drush_log(dt("File not found: @file_path", array('@file_path' => $file_path)), 'error');
+    }
+  }
+}
+
 /**
  * Creates a newspaper issue.
  */

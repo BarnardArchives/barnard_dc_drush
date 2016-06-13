@@ -10,7 +10,7 @@ function barnard_dc_ingest_drush_command() {
     'ingest_newspapers' => array(
       'description' => "Creates the parent issue object and uploads the pages as child objects. Requires the Drupal7 version of Islandora with tuque",
       'arguments' => array(
-        'query_file' => 'The path to a CSV file that contains the information about the newspaper pages',
+        'query_file' => 'The path to a CSV file that contains the information about the newspaper pages.',
       ),
       'options' => array(
         'derivatives' => 'Whether to create derivatives.',
@@ -42,21 +42,38 @@ function barnard_dc_ingest_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'generate_newspaper_csv' => array(
-      'description' => 'Generates csv files for ingesting newspapers.',
+    'ingest_objects' => array(
+      'description' => 'Ingests objects.',
+      'arguments' => array(
+        'query_file' => 'A csv file containing information about the objects to be ingested.',
+      ),
+      'options' => array(
+        'type' => 'The type of objects to ingest.',
+        'year' => 'Specific year from which to inget objects.',
+      ),
+      'examples' => array(
+        'drush -u 1 --uri=http://localhost bdcio /path/to/pages.csv',
+      ),
+      'aliases' => array('bdcio'),
+      // We can pass in users id on the command line using drush -u.
+      'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
+    ),
+    'generate_csv' => array(
+      'description' => 'Generates csv files for ingesting objects.',
       'arguments' => array(
         'directory' => 'The directory containing image files.',
       ),
       'options' => array(
         'year' => 'The year for which to generate csv.',
         'month' => 'The month for which to generate csv.',
+        'type' => 'The type of object for which to generate csv.',
       ),
       'examples' => array(
-        'drush barnard_dc_generate_newspaper_csv /home/vagrant/bulletin',
-        'drush barnard_dc_generate_newspaper_csv --year=2001 /home/vagrant/bulletin',
-        'drush barnard_dc_generate_newspaper_csv --year=2001 --month=08 /home/vagrant/bulletin',
+        'drush barnard_dc_generate_csv /home/vagrant/bulletin',
+        'drush barnard_dc_generate_csv --year=2001 /home/vagrant/bulletin',
+        'drush barnard_dc_generate_csv --year=2001 --month=08 /home/vagrant/bulletin',
       ),
-      'aliases' => array('bcignc', 'bcdgnc'),
+      'aliases' => array('bcigc', 'bdcgc'),
     ),
   );
 }
@@ -234,51 +251,37 @@ function drush_barnard_dc_ingest_newspapers($query_file) {
   }
 }
 
+function drush_barnard_dc_ingest_objects($query_file) {
+  if ($type = drush_get_option('type')) {
+    $function = "_barnard_dc_drush_ingest_{$type}";
+  }
+  else {
+    drush_log(dt("Didn't get type."), 'error');
+    return;
+  }
+
+  $options = array(
+    'year' => drush_get_option('year'),
+  );
+
+  if (function_exists($function)) {
+    $function($query_file, $options);
+  }
+  else {
+    drush_log(dt("Didn't get ingest method at type = @type", array('@type' => $type)), 'error');
+  }
+}
+
 /**
  * Generates csv files for ingesting newspapers.
  */
-function drush_barnard_dc_generate_newspaper_csv($directory = '/home/BCIT/dsavage/bulletin') {
+function drush_barnard_dc_generate_csv($directory = '/home/BCIT/dsavage/bulletin') {
   $year = drush_get_option('year');
   $month = drush_get_option('month');
-  $filename = $year && $month ? "$year-$month" : ($year ? "$year" : '');
-  $filename .= 'pages.csv';
-  $csv = fopen("$directory/$filename", 'w');
-  $lines = array(
-    array("title", "date", "filename", "page number", "type", "extent"),
-  );
-  $issues = array();
+  $type = drush_get_option('type') ? drush_get_option('type') : 'newspaper';
+  $function = "_barnard_dc_drush_generate_{$type}_csv";
 
-  foreach (scandir($directory) as $file) {
-    if (mime_content_type("$directory/$file") == 'image/tiff') {
-      $ts = strtotime(array_shift(explode('-', str_replace('BarnardBulletin-', '', $file))));
-      $day = date('d', $ts);
-      if ((!$month || ($month && date('m', $ts) == $month)) && (!$year || ($year && date('Y', $ts) == $year))) {
-        $extent_cmd = 'ls ' . $directory . '/BarnardBulletin-' . date('Ymd', $ts) . '*.tiff | wc -l';
-        $extent = trim(`$extent_cmd`);
-        $page = preg_replace('/^0+/', '', str_replace('.tiff', '', end(explode('-', $file))));
-        $date_title = date('F j, Y', $ts);
-        if ($page == 1) {
-          $lines[] = array(
-            "Barnard Bulletin, " . $date_title, $date_title,
-            '',
-            '',
-            'issue',
-            $extent,
-          );
-        }
-        $lines[] = array(
-          $date_title,
-          $date_title,
-          $file,
-          $page,
-          'page',
-          $extent,
-        );
-      }
-    }
+  if (function_exists($function)) {
+    $function($directory, array('year' => $year, 'month' => $month));
   }
-  foreach ($lines as $line) {
-    fputcsv($csv, $line);
-  }
-  fclose($csv);
 }

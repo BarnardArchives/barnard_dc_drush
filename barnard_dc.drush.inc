@@ -18,9 +18,9 @@ function barnard_dc_drush_command() {
     'barnard_dc_purge_object' => array(
       'description' => 'Purges an object from the repository.',
       'arguments' => array(
-        'pids' => 'A comma-separated list of unique identifiers.',
+        'pid' => 'A unique identifier.',
       ),
-      'aliases' => array('bcipo'),
+      'aliases' => array('bcipo', 'bdcpo'),
     ),
     'barnard_dc_ingest_pubs' => array(
       'description' => 'Ingests student publications.',
@@ -88,14 +88,30 @@ function barnard_dc_drush_command() {
  * Purges one or more islandora objects from the fedora repository.
  *
  * @param string $pids
- *   The pid of the object to purge, or a comma-separated list of pids.
+ *   The pid of the object to purge.
  */
-function drush_barnard_dc_purge_object($pids) {
-  $tuque = new IslandoraTuque();
-  foreach (explode(',', $pids) as $pid) {
+function drush_barnard_dc_purge_object($object_id) {
+  module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
+
+  $connection = islandora_get_tuque_connection();
+  $repository = $connection->repository;
+
+  $pids = array($object_id);
+  $object = islandora_object_load($object_id);
+
+  if ($pages = islandora_paged_content_get_pages($object)) {
+    $continue = drush_prompt(dt('Got paged object at pid = @pid. Purge pages?', array('@pid' => $object_id)));
+    if (preg_match('/^y/', strtolower($continue)) === 1) {
+      foreach ($pages as $page_id => $page) {
+        $pids[] = $page_id;
+      }
+    }
+  }
+
+  foreach ($pids as $pid) {
     drush_log(dt('Purging object at pid = @pid...', array('@pid' => $pid)), 'ok');
     try {
-      $tuque->repository->purgeObject($pid);
+      $repository->purgeObject($pid);
     }
     catch (Exception $e) {
       drush_log('Caught exception: @e', array('@e' => $e->getMessage()), 'warning');
