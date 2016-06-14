@@ -13,7 +13,8 @@ function _barnard_dc_drush_generate_newspaper_csv($directory, $data) {
   $month = $data['month'];
   $filename = $year && $month ? "$year-$month" : ($year ? "$year" : '');
   $filename .= 'pages.csv';
-  $csv = fopen("$directory/$filename", 'w');
+  $csv_filename = "$directory/$filename";
+  $csv = fopen($csv_filename, 'w');
   $lines = array(
     array("title", "date", "filename", "page number", "type", "extent"),
   );
@@ -52,6 +53,7 @@ function _barnard_dc_drush_generate_newspaper_csv($directory, $data) {
     fputcsv($csv, $line);
   }
   fclose($csv);
+  return $csv_filename;
 }
 
 /**
@@ -68,8 +70,15 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
   // Is this necessary?
   ini_set("auto_detect_line_endings", "1");
 
+  if ($options['generate_csv'] !== NULL || is_dir($query_file)) {
+    $csv_file = _barnard_dc_drush_generate_newspaper_csv($query_file, $options);
+    $fh = fopen($csv_file, 'r');
+  }
+  else {
+    $fh = fopen($query_file, 'r');
+  }
+
   $path_name = dirname($query_file);
-  $fh = fopen($query_file, 'r');
   $line_number = 0;
   $issues = array();
 
