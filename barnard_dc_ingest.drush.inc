@@ -1,6 +1,6 @@
 <?php
 
-require_once 'includes/barnard_dc.drush_ingest_helpers.inc';
+require_once 'includes/barnard_dc.drush_ingest_methods.inc';
 
 /**
  * Implements hook_drush_command().
@@ -17,6 +17,7 @@ function barnard_dc_ingest_drush_command() {
         'year' => 'Specific year from which to ingest objects.',
         'month' => 'Month from which to ingest objects.',
         'generate-csv' => 'Whether to generate a csv file for use in newspaper ingest.',
+        'identifier' => 'The identifier of the collection to ingest.',
       ),
       'examples' => array(
         'drush -u 1 --uri=http://localhost bdcio /path/to/pages.csv',
@@ -41,6 +42,7 @@ function drush_barnard_dc_ingest_objects($query_file) {
     'year' => drush_get_option('year'),
     'month' => drush_get_option('month'),
     'generate-csv' => drush_get_option('generate-csv'),
+    'identifier' => drush_get_option('identifier'),
   );
 
   if (function_exists($function)) {
