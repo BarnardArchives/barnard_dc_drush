@@ -489,28 +489,6 @@ function _barnard_dc_ms_transcript($ms_pid) {
 }
 
 /**
- * Helper function to set and process derivative-creation batches.
- *
- * @see includes/barnard_dc.drush_batch.inc
- */
-function _barnard_dc_create_derivatives($objects) {
-  require_once 'includes/barnard_dc.drush_batch';
-  foreach ($objects as $pid) {
-    $book = islandora_object_load($pid);
-    $pages = array_keys(islandora_paged_content_get_pages($book));
-    // $img_batch = islandora_paged_content_create_images_batch($book, $pages);
-    $img_batch = barnard_dc_create_images_batch($book, $pages);
-    // $pdf_batch = islandora_paged_content_create_pdf_batch($book, $pages);
-    $pdf_batch = barnard_dc_create_pdf_batch($book, $pages);
-    $ocr_batch = islandora_paged_content_create_ocr_batch($book, $pages, array('language' => 'eng', 'preprocess' => FALSE));
-    batch_set($img_batch);
-    batch_set($pdf_batch);
-    batch_set($ocr_batch);
-  }
-  drush_backend_batch_process();
-}
-
-/**
  * Generates URL aliases for objects in the repo that don't have them.
  *
  * (Requires islandora_pathauto module.)

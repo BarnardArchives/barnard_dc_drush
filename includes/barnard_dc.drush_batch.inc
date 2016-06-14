@@ -36,7 +36,7 @@ function barnard_dc_create_images_batch(AbstractObject $paged_content, array $pa
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
     // 'file' => drupal_get_path('module', 'barnard_dc') . '/includes/barnard_dc.drush_batch.inc',
-    'file' => DRUPAL_ROOT . '/sites/all/drush/includes/barnard_dc.drush_batch.inc',
+    'file' => 'sites/all/drush/includes/barnard_dc.drush_batch.inc',
   );
 }
 
@@ -95,7 +95,6 @@ function barnard_dc_create_all_derivatives(AbstractObject $object) {
     // We use our own helper function to generate JPGs.
     else {
       $function = 'barnard_dc_create_jpg_derivative';
-      print "Got function: $function\n";
     }
     $ret[] = $function($object);
   }
@@ -185,7 +184,7 @@ function barnard_dc_create_pdf_batch(AbstractObject $paged_content, array $pages
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
     // 'file' => drupal_get_path('module', 'barnard_dc') . '/includes/barnard_dc.drush_batch.inc',
-    'file' => DRUPAL_ROOT . '/sites/all/drush/includes/barnard_dc.drush_batch.inc',
+    'file' => 'sites/all/drush/includes/barnard_dc.drush_batch.inc',
   );
 }
 

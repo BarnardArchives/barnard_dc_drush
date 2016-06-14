@@ -1,6 +1,26 @@
 <?php
 
 /**
+ * Helper function to set and process derivative-creation batches.
+ *
+ * @see barnard_dc.drush_batch.inc
+ */
+function _barnard_dc_create_derivatives($objects, $type) {
+  require_once 'barnard_dc.drush_batch.inc';
+  foreach ($objects as $pid) {
+    $book = islandora_object_load($pid);
+    $pages = array_keys(islandora_paged_content_get_pages($book));
+    $img_batch = barnard_dc_create_images_batch($book, $pages);
+    $pdf_batch = barnard_dc_create_pdf_batch($book, $pages);
+    $ocr_batch = islandora_paged_content_create_ocr_batch($book, $pages, array('language' => 'eng', 'preprocess' => FALSE));
+    batch_set($img_batch);
+    batch_set($pdf_batch);
+    batch_set($ocr_batch);
+  }
+  drush_backend_batch_process();
+}
+
+/**
  * @file
  * Helper functions invoked in custom drush methods.
  *
@@ -67,10 +87,11 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
-  // Is this necessary?
   ini_set("auto_detect_line_endings", "1");
 
-  if ($options['generate_csv'] !== NULL || is_dir($query_file)) {
+  // If the generate-csv option is specified or if the argument supplied is a
+  // directory, generate a csv input file first.
+  if ($options['generate-csv'] !== NULL || is_dir($query_file)) {
     $csv_file = _barnard_dc_drush_generate_newspaper_csv($query_file, $options);
     $fh = fopen($csv_file, 'r');
   }
@@ -82,6 +103,10 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
   $line_number = 0;
   $issues = array();
 
+  if (!$fh) {
+    drush_log("Couldn't open file.", 'error');
+    return;
+  }
   while (($data = fgetcsv($fh)) !== FALSE) {
     $line_number++;
     // Only parse the data if we aren't on the first line, which contains
@@ -106,6 +131,7 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
             $issue_pid = create_issue_object($issue_pid, $data);
           }
         }
+        $issues[] = $issue_pid;
       }
       elseif ($type == 'page') {
         // Sample page pid: bc:bulletin-19901001-1.
@@ -121,6 +147,8 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
       }
     }
   }
+  // TODO should we keep this?
+  _barnard_dc_create_derivatives($issues);
 }
 
 function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
@@ -149,9 +177,9 @@ function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
       $book_pid = create_book_object($book_pid, $data);
     }
     else {
-      // drush_log(dt('Issue exists at pid = @pid; skipping...', array('@pid' => $book_pid)), 'warning');
       $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
       if (preg_match('/^y/', strtolower($continue)) === 1) {
+        drush_log(dt("Removing object: @pid", array('@pid' => $issue_pid)), 'ok');
         drush_barnard_dc_purge_object($issue_pid);
         $book_pid = create_book_object($book_pid, $data);
       }
@@ -184,6 +212,8 @@ function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
       drush_log(dt("File not found: @file_path", array('@file_path' => $file_path)), 'error');
     }
   }
+  // TODO should we keep this?
+  _barnard_dc_create_derivatives($books);
 }
 
 /**
