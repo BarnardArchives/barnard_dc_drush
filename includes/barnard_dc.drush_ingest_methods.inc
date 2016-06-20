@@ -1,7 +1,6 @@
 <?php
 
 require_once 'barnard_dc.drush_ingest_helpers.inc';
-// require_once 'barnard_dc.drush_mods_data.inc';
 
 /**
  * Ingests a newspaper object. Can be invoked by drush_barnard_dc_ingest_objects().
@@ -231,7 +230,7 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
 /**
  * Ingests manuscripts.
  */
-function drush_barnard_dc_ingest_manuscript($md_file, $options) {
+function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
   $id_option = $options['identifier'];
 
   if (file_exists($md_file)) {
@@ -309,7 +308,7 @@ function drush_barnard_dc_ingest_manuscript($md_file, $options) {
             }
           }
         }
-        _barnard_dc_ms_transcript($ms_parent_pid);
+        // _barnard_dc_ms_transcript($ms_parent_pid);
       }
     }
   }
