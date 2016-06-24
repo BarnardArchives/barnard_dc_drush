@@ -244,16 +244,14 @@ function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
       }
       $ms_data_dir = dirname($md_file) . '/' . $ms_data['id'];
       if (is_dir($ms_data_dir)) {
-        $continue = drush_prompt(dt("Entering directory: @dir. Continue?", array('@dir' => $ms_data_dir)));
-        // Continue unless we got a response like "no" or "N"
-        if (preg_match('/^n/', strtolower($continue)) === 1) {
-          continue;
-        }
         $ms_data['title'] = $data[1];
         $ms_mods_file = $ms_data_dir . '/' . $ms_data['id'] . '.xml';
+        // If we found an XML file that matches the naming convention, assume
+        // it contains the MODS data we want.
         if (file_exists($ms_mods_file)) {
           $ms_data['xml'] = file_get_contents($ms_mods_file);
         }
+        // Otherwise, generate MODS using the other csv fields.
         else {
           $ms_data['creator'] = $data[2];
           $ms_data['creator_uri'] = $data[3];
@@ -286,7 +284,7 @@ function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
         }
 
         foreach (scandir($ms_data_dir) as $ms_file) {
-          var_export($ms_file);
+          // Create a page object for each tif file we find.
           if (preg_match('/\.tif$/', $ms_file)) {
             $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
             $page_number = preg_replace('/^0+/', '', $page_padded);
@@ -308,12 +306,10 @@ function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
             }
           }
         }
-        // _barnard_dc_ms_transcript($ms_parent_pid);
       }
     }
   }
   else {
     drush_log(dt("File not found: @md_file", array('@md_file' => $md_file)), 'error');
-    return;
   }
 }
