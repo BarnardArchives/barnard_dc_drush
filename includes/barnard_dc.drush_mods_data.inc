@@ -227,27 +227,17 @@ function _barnard_dc_ms_mods($ms_data) {
   </recordInfo>";
   }
   // TODO how to handle multiple creators?
-  $creator_xml = "<name type=\"personal\" authority=\"\" authorityURI=\"\" valueURI=\"\">
+  if (!empty($ms_data['creator'])) {
+    $creator_xml = isset($ms_data['creator_uri']) && !empty($ms_data['creator_uri']) ?
+    "<name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$ms_data['creator_uri']}\">" :
+    "<name type=\"personal\" authority=\"local\">";
+    $creator_xml .= "
     <namePart>{$ms_data['creator']}</namePart>
     <role>
       <roleTerm type=\"text\" authority=\"marcrelator\">Creator</roleTerm>
-    </role>
-  </name>";
-  $creator_uri_xml = isset($ms_data['creator_uri']) && !empty($ms_data['creator_uri']) ?
-    "<name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$ms_data['creator_uri']}\">
-    <namePart></namePart>
-    <role>
-      <roleTerm type=\"text\" authority=\"marcrelator\">{$ms_data['creator']}</roleTerm>
-    </role>
-  </name>" :
-    "<name type=\"personal\" authority=\"local\">
-    <namePart></namePart>
-    <role>
-      <roleTerm type=\"text\" authority=\"marcrelator\">{$ms_data['creator']}</roleTerm>
-    </role>
-  </name>";
-
-  // TODO this should be different depending whether a range is present.
+    </role>";
+    $creator_xml .= "</name>";
+  }
   if (!empty($ms_data['date_start']) && !empty($ms_data['date_end'])) {
     $date_xml .= "
     <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\" point=\"start\" qualifier=\"approximate\">{$ms_data['date_start']}</dateCreated>
@@ -265,7 +255,6 @@ function _barnard_dc_ms_mods($ms_data) {
     <title>{$ms_data['title']}</title>
   </titleInfo>
   {$creator_xml}
-  {$creator_uri_xml}
   <typeOfResource>{$ms_data['resource_type']}</typeOfResource>
   <genre authority=\"aat\" authorityURI=\"http://vocab.getty.edu/aat\" valueURI=\"{$ms_data['genre_uri']}\">{$ms_data['genre']}</genre>
   {$date_xml}";
