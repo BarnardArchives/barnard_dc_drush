@@ -24,10 +24,10 @@ module_load_include('inc', 'islandora_large_image', 'includes/derivatives');
  * @return array
  *   The batch definition.
  */
-function barnard_dc_create_images_batch(AbstractObject $paged_content, array $pages) {
+function bc_islandora_create_images_batch(AbstractObject $paged_content, array $pages) {
   return array(
     'operations' => array(
-      array('barnard_dc_create_images_batch_operation', array(
+      array('bc_islandora_create_images_batch_operation', array(
           $paged_content->id, $pages)),
     ),
     'finished' => 'islandora_paged_content_batch_finished',
@@ -35,8 +35,8 @@ function barnard_dc_create_images_batch(AbstractObject $paged_content, array $pa
     'init_message' => t('Preparing to create images for @label ...', array('@label' => $paged_content->label)),
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
-    // 'file' => drupal_get_path('module', 'barnard_dc') . '/includes/barnard_dc.drush_batch.inc',
-    'file' => 'sites/all/drush/includes/barnard_dc.drush_batch.inc',
+    // 'file' => drupal_get_path('module', 'bc_islandora') . '/includes/bc_islandora.drush_batch.inc',
+    'file' => 'sites/all/drush/includes/bc_islandora.drush_batch.inc',
   );
 }
 
@@ -50,12 +50,12 @@ function barnard_dc_create_images_batch(AbstractObject $paged_content, array $pa
  * @param array $context
  *   The context of this batch operation.
  */
-function barnard_dc_create_images_batch_operation($paged_content_id, array $pages, &$context) {
+function bc_islandora_create_images_batch_operation($paged_content_id, array $pages, &$context) {
   $paged_content = islandora_object_load($paged_content_id);
   $page = islandora_paged_content_start_batch_operation($pages, $context);
   if ($page) {
     $page = islandora_object_load($page);
-    $context['results']['successful'][] = barnard_dc_derive_image_datastreams($page);
+    $context['results']['successful'][] = bc_islandora_derive_image_datastreams($page);
     if (islandora_paged_content_end_batch_operation($context, 1, array('Created images for @successful of @total pages.'))) {
       islandora_paged_content_update_paged_content_thumbnail($paged_content);
     }
@@ -74,8 +74,8 @@ function barnard_dc_create_images_batch_operation($paged_content_id, array $page
  * @return bool
  *   TRUE if successful, FALSE otherwise.
  */
-function barnard_dc_derive_image_datastreams(AbstractObject $object) {
-  $ret = barnard_dc_create_all_derivatives($object);
+function bc_islandora_derive_image_datastreams(AbstractObject $object) {
+  $ret = bc_islandora_create_all_derivatives($object);
   if ($ret) {
     // Add dimensions for the JP2.
     islandora_paged_content_add_dimensions_relationships($object);
@@ -86,7 +86,7 @@ function barnard_dc_derive_image_datastreams(AbstractObject $object) {
 /**
  * Returns an array of names of functions for generating derivatives.
  */
-function barnard_dc_create_all_derivatives(AbstractObject $object) {
+function bc_islandora_create_all_derivatives(AbstractObject $object) {
   $ret = array();
   foreach (array('JPG', 'TN', 'JP2') as $dsid) {
     if ($dsid != 'JPG') {
@@ -94,7 +94,7 @@ function barnard_dc_create_all_derivatives(AbstractObject $object) {
     }
     // We use our own helper function to generate JPGs.
     else {
-      $function = 'barnard_dc_create_jpg_derivative';
+      $function = 'bc_islandora_create_jpg_derivative';
     }
     $ret[] = $function($object);
   }
@@ -107,7 +107,7 @@ function barnard_dc_create_all_derivatives(AbstractObject $object) {
  * Modified version of default islandora function; modified to provide DS label
  * from MODS identifier data.
  */
-function barnard_dc_create_jpg_derivative(AbstractObject $object) {
+function bc_islandora_create_jpg_derivative(AbstractObject $object) {
   unset($object['JPG']);
   $new_label = _mods_id_label($object, 'JPG');
 
@@ -171,20 +171,20 @@ function barnard_dc_create_jpg_derivative(AbstractObject $object) {
  * @return array
  *   The batch definition.
  */
-function barnard_dc_create_pdf_batch(AbstractObject $paged_content, array $pages, array $options) {
+function bc_islandora_create_pdf_batch(AbstractObject $paged_content, array $pages, array $options) {
   return array(
     'operations' => array(
-      array('barnard_dc_create_pdf_page_batch_operation', array(
+      array('bc_islandora_create_pdf_page_batch_operation', array(
           $pages, $options)),
-      array('barnard_dc_create_pdf_paged_content_batch_operation', array($paged_content->id)),
+      array('bc_islandora_create_pdf_paged_content_batch_operation', array($paged_content->id)),
     ),
     'finished' => 'islandora_paged_content_batch_finished',
     'title' => t('Creating PDF from @label ...', array('@label' => $paged_content->label)),
     'init_message' => t('Preparing to create PDF from @label ...', array('@label' => $paged_content->label)),
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
-    // 'file' => drupal_get_path('module', 'barnard_dc') . '/includes/barnard_dc.drush_batch.inc',
-    'file' => 'sites/all/drush/includes/barnard_dc.drush_batch.inc',
+    // 'file' => drupal_get_path('module', 'bc_islandora') . '/includes/bc_islandora.drush_batch.inc',
+    'file' => 'sites/all/drush/includes/bc_islandora.drush_batch.inc',
   );
 }
 
@@ -196,7 +196,7 @@ function barnard_dc_create_pdf_batch(AbstractObject $paged_content, array $pages
  * @param array $context
  *   The context of this batch operation.
  */
-function barnard_dc_create_pdf_paged_content_batch_operation($paged_content_id, &$context) {
+function bc_islandora_create_pdf_paged_content_batch_operation($paged_content_id, &$context) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   $paged_content = islandora_object_load($paged_content_id);
   if (empty($context['results']['pages'])) {
@@ -230,7 +230,7 @@ function barnard_dc_create_pdf_paged_content_batch_operation($paged_content_id, 
  * @param array $context
  *   The context of this batch operation.
  */
-function barnard_dc_create_pdf_page_batch_operation(array $pages, array $options, &$context) {
+function bc_islandora_create_pdf_page_batch_operation(array $pages, array $options, &$context) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   $page = islandora_paged_content_start_batch_operation($pages, $context);
   if ($page) {

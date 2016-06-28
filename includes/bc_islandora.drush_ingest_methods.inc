@@ -1,15 +1,15 @@
 <?php
 
-require_once 'barnard_dc.drush_ingest_helpers.inc';
+require_once 'bc_islandora.drush_ingest_helpers.inc';
 
 /**
- * Ingests a newspaper object. Can be invoked by drush_barnard_dc_ingest_objects().
+ * Ingests a newspaper object. Can be invoked by drush_bc_islandora_ingest_objects().
  *
  * Sample CSV data:
  * title,date,filename,"page number",type,extent
  * "Barnard Bulletin, October 1, 1990","October 1, 1990",,,issue,24
  */
-function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
+function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
@@ -18,7 +18,7 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
   // If the generate-csv option is specified or if the argument supplied is a
   // directory, generate a csv input file first.
   if ($options['generate-csv'] !== NULL || is_dir($query_file)) {
-    $csv_file = _barnard_dc_drush_generate_newspaper_csv($query_file, $options);
+    $csv_file = _bc_islandora_drush_generate_newspaper_csv($query_file, $options);
     $fh = fopen($csv_file, 'r');
   }
   else {
@@ -53,7 +53,7 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
         else {
           $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
           if (preg_match('/^y/', strtolower($continue)) === 1) {
-            drush_barnard_dc_purge_object($issue_pid);
+            drush_bc_islandora_purge_object($issue_pid);
             $issue_pid = create_issue_object($issue_pid, $data);
           }
         }
@@ -74,10 +74,10 @@ function _barnard_dc_drush_ingest_newspaper($query_file, $options = array()) {
     }
   }
   // TODO should we keep this?
-  _barnard_dc_create_derivatives($issues);
+  _bc_islandora_create_derivatives($issues);
 }
 
-function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
+function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
@@ -106,7 +106,7 @@ function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
       $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
       if (preg_match('/^y/', strtolower($continue)) === 1) {
         drush_log(dt("Removing object: @pid", array('@pid' => $issue_pid)), 'ok');
-        drush_barnard_dc_purge_object($issue_pid);
+        drush_bc_islandora_purge_object($issue_pid);
         $book_pid = create_book_object($book_pid, $data);
       }
       else {
@@ -139,7 +139,7 @@ function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
     }
   }
   // TODO should we keep this?
-  _barnard_dc_create_derivatives($books);
+  _bc_islandora_create_derivatives($books);
 }
 
 /**
@@ -148,7 +148,7 @@ function _barnard_dc_drush_ingest_book($query_file, $options = array()) {
  * @param string $directory
  *   The directory containing publications to ingest.
  */
-function _barnard_dc_drush_ingest_student_publication($directory, $options = array()) {
+function _bc_islandora_drush_ingest_student_publication($directory, $options = array()) {
   $pub_id = $options['identifier'];
 
   if (is_dir($directory)) {
@@ -162,7 +162,7 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
       if (!is_dir($path) || preg_match('/^\./', $file) !== 0 || !file_exists($xml_file)) {
         continue;
       }
-      $pub_data = _barnard_dc_pub_data($xml_file);
+      $pub_data = _bc_islandora_pub_data($xml_file);
       $pid_title = str_replace(' ', '-', preg_replace('/[^a-z\d\s+]/', '', strtolower($pub_data['title'])));
       $pub_pid = 'bc:' . $pid_title;
       // Publication ids that constitute "exceptions" (different behavior
@@ -174,14 +174,14 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
         create_pub_object($pub_pid, $pub_data);
       }
       elseif ($exception) {
-        $collection_pid = variable_get('barnard_dc_pubs_pid', 'islandora:1022');
-        $book_pid = create_book_object($pub_pid, _barnard_dc_pub_data($xml_file, $collection_pid));
+        $collection_pid = variable_get('bc_islandora_pubs_pid', 'islandora:1022');
+        $book_pid = create_book_object($pub_pid, _bc_islandora_pub_data($xml_file, $collection_pid));
       }
       else {
         $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $pub_pid)));
         if (preg_match('/^y/', strtolower($continue)) === 1) {
           drush_log(dt("Removing object: @pub_pid", array('@pub_pid' => $pub_pid)), 'ok');
-          drush_barnard_dc_purge_object($pub_pid);
+          drush_bc_islandora_purge_object($pub_pid);
           create_pub_object($pub_pid, $pub_data);
         }
       }
@@ -193,7 +193,7 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
           if (!isset($book_pid)) {
             $book_pid = $pub_pid;
           }
-          _barnard_dc_process_pub_pages($book_pid, $xml_file, $path, $purge);
+          _bc_islandora_process_pub_pages($book_pid, $xml_file, $path, $purge);
         }
         // If non-exceptional, do the normal thing (TODO reverse this order?)
         else {
@@ -204,7 +204,7 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
             if ((!is_dir($subpath) || preg_match('/^\./', $subdir) !== 0 || !file_exists($xml_file)) && !$exception) {
               continue;
             }
-            $book_data = _barnard_dc_pub_data($xml_file, $pub_pid, 'book');
+            $book_data = _bc_islandora_pub_data($xml_file, $pub_pid, 'book');
             $issue_pid = implode('-', array($pub_pid, $book_data['date']));
             if (!islandora_object_load($issue_pid)) {
               create_book_object($issue_pid, $book_data);
@@ -213,13 +213,13 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
               $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
               if (preg_match('/^y/', strtolower($continue)) === 1) {
                 drush_log(dt("Removing object: @pub_pid", array('@pub_pid' => $issue_pid)), 'ok');
-                drush_barnard_dc_purge_object($issue_pid);
+                drush_bc_islandora_purge_object($issue_pid);
                 create_book_object($issue_pid, $book_data);
               }
             }
             $issue_obj = islandora_object_load($issue_pid);
             // Create a page object for each page.
-            _barnard_dc_process_pub_pages($issue_pid, $xml_file, $subpath);
+            _bc_islandora_process_pub_pages($issue_pid, $xml_file, $subpath);
           }
         }
       }
@@ -230,7 +230,7 @@ function _barnard_dc_drush_ingest_student_publication($directory, $options = arr
 /**
  * Ingests manuscripts.
  */
-function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
+function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
   $id_option = $options['identifier'];
 
   if (file_exists($md_file)) {
@@ -273,9 +273,9 @@ function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
         $ms_pid = 'bcrw';
 
         if (!islandora_object_load($ms_pid)) {
-          $ms_data['collection_pid'] = variable_get('barnard_dc_manuscripts_pid', 'islandora:manuscriptCollection');
+          $ms_data['collection_pid'] = variable_get('bc_islandora_manuscripts_pid', 'islandora:manuscriptCollection');
           $ms_data['cm_pid'] = 'islandora:manuscriptCModel';
-          $ms_data['xml'] = _barnard_dc_ms_mods($ms_data);
+          $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
           // $ms_parent_pid = create_pub_object($ms_pid, $ms_data);
           $ms_parent_pid = create_pub_object('bcrw', $ms_data);
         }
@@ -295,7 +295,7 @@ function _barnard_dc_drush_ingest_manuscript($md_file, $options) {
             $ms_data['title'] = $data[1] . ', page ' . $page_number;
             $ms_data['cm_pid'] = $ms_pid;
             $ms_data['type'] = 'page';
-            $ms_data['xml'] = _barnard_dc_ms_mods($ms_data);
+            $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
 
             // TODO this is redundant now. Find another way to check if page exists?
             if (!islandora_object_load($page_pid)) {

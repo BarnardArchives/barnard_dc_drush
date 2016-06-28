@@ -1,6 +1,6 @@
 <?php
 
-function _barnard_dc_drush_np_issue_mods($title, $extent, $date, $date_short) {
+function _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short) {
   return <<<ISSUE_MODS
 <mods xmlns="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd">
   <titleInfo>
@@ -30,7 +30,7 @@ function _barnard_dc_drush_np_issue_mods($title, $extent, $date, $date_short) {
 ISSUE_MODS;
 }
 
-function _barnard_dc_drush_page_mods($type, $title, $genre, $host_title, $host_id, $page_id, $date_created, $date_issued) {
+function _bc_islandora_drush_page_mods($type, $title, $genre, $host_title, $host_id, $page_id, $date_created, $date_issued) {
   switch ($type) {
     case 'pub':
       $mods_xml = <<<PUB_PAGE_MODS
@@ -86,7 +86,7 @@ DEFAULT_PAGE_MODS;
   return $mods_xml;
 }
 
-function _barnard_dc_drush_book_mods($title, $date, $extent, $description, $id_date) {
+function _bc_islandora_drush_book_mods($title, $date, $extent, $description, $id_date) {
 	return <<<BOOK_MODS
 <mods xmlns="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd">
   <titleInfo>
@@ -176,9 +176,9 @@ BOOK_MODS;
 }
 
 /**
- * Gnerates manuscript MODS.
+ * Generates manuscript MODS.
  */
-function _barnard_dc_ms_mods($ms_data) {
+function _bc_islandora_ms_mods($ms_data) {
   if (isset($ms_data['type']) && $ms_data['type'] == 'page') {
     $date_xml = '<originInfo>';
   }

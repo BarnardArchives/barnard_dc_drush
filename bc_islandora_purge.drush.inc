@@ -1,6 +1,6 @@
 <?php
 
-function barnard_dc_purge_drush_command() {
+function bc_islandora_purge_drush_command() {
 	return array(
     'purge_object' => array(
       'description' => 'Purges an object from the repository.',
@@ -21,7 +21,7 @@ function barnard_dc_purge_drush_command() {
  * @param string $pids
  *   The pid of the object to purge.
  */
-function drush_barnard_dc_purge_object($object_id) {
+function drush_bc_islandora_purge_object($object_id) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
 
   $connection = islandora_get_tuque_connection();

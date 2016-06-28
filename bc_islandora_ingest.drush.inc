@@ -1,11 +1,11 @@
 <?php
 
-require_once 'includes/barnard_dc.drush_ingest_methods.inc';
+require_once 'includes/bc_islandora.drush_ingest_methods.inc';
 
 /**
  * Implements hook_drush_command().
  */
-function barnard_dc_ingest_drush_command() {
+function bc_islandora_ingest_drush_command() {
   return array(
     'ingest_objects' => array(
       'description' => 'Ingests objects.',
@@ -22,16 +22,16 @@ function barnard_dc_ingest_drush_command() {
       'examples' => array(
         'drush -u 1 --uri=http://localhost bdcio /path/to/pages.csv',
       ),
-      'aliases' => array('bdcio'),
+      'aliases' => array('bciio'),
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
   );
 }
 
-function drush_barnard_dc_ingest_objects($query_file) {
+function drush_bc_islandora_ingest_objects($query_file) {
   if ($type = drush_get_option('type')) {
-    $function = "_barnard_dc_drush_ingest_{$type}";
+    $function = "_bc_islandora_drush_ingest_{$type}";
   }
   else {
     drush_log(dt("Please specify type of object to ingest."), 'error');

@@ -8,14 +8,14 @@
  * @see https://github.com/roblib/scripts/tree/master/drush/drupal7.
  */
 
-require_once 'includes/barnard_dc.drush_ingest_helpers.inc';
+require_once 'includes/bc_islandora.drush_ingest_helpers.inc';
 
 /**
  * Implements hook_drush_command().
  */
-function barnard_dc_drush_command() {
+function bc_islandora_temp_drush_command() {
   return array(
-    'barnard_dc_generate_url_aliases' => array(
+    'bc_islandora_generate_url_aliases' => array(
       'examples' => array(
         'drush -u 1 bcigua',
       ),
@@ -23,13 +23,13 @@ function barnard_dc_drush_command() {
       // We can pass in users id on the command line using drush -u.
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
     ),
-    'barnard_dc_check_ocr' => array(
+    'bc_islandora_check_ocr' => array(
       'examples' => array(
         'drush -u 1 bcico',
       ),
       'aliases' => array('bcico'),
     ),
-    'barnard_dc_fix_pub_metadata' => array(
+    'bc_islandora_fix_pub_metadata' => array(
       'examples' => array(
         'drush bcifpm',
       ),
@@ -46,7 +46,7 @@ function barnard_dc_drush_command() {
  *
  * (Requires islandora_pathauto module.)
  */
-function drush_barnard_dc_generate_url_aliases() {
+function drush_bc_islandora_temp_generate_url_aliases() {
   $everything_query = <<<SPARQL
     SELECT DISTINCT ?object
     FROM <#ri>
@@ -83,7 +83,7 @@ SPARQL;
 /**
  * Checks if book page objects have (H)OCR datastreams.
  */
-function drush_barnard_dc_check_ocr($collection_pid = 'islandora:bookCollection') {
+function drush_bc_islandora_temp_check_ocr($collection_pid = 'islandora:bookCollection') {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   // SPARQL query for isMemberOf book collection and hasModel bookCModel.
   $query = <<<EOQ
@@ -193,7 +193,7 @@ function _ms_default_mods($ms_obj) {
 MODS;
 }
 
-function drush_barnard_dc_fix_pub_metadata($pid) {
+function drush_bc_islandora_temp_fix_pub_metadata($pid) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
 
   $pub_obj = islandora_object_load($pid);

@@ -8,9 +8,9 @@
  * @see https://github.com/roblib/scripts/tree/master/drush/drupal7
  */
 
-require_once 'barnard_dc.drush_mods_data.inc';
+require_once 'bc_islandora.drush_mods_data.inc';
 
-function _barnard_dc_drush_generate_newspaper_csv($directory, $data) {
+function _bc_islandora_drush_generate_newspaper_csv($directory, $data) {
   $year = $data['year'];
   $month = $data['month'];
   $filename = $year && $month ? "$year-$month" : ($year ? "$year" : '');
@@ -80,7 +80,7 @@ function create_issue_object($pid, $data) {
   // TODO should be able to supply this as an argument. (or via CSV?)
   $collection_pid = variable_get('bc_islandora_newspaper_pid', 'islandora:74');
 
-  $xml = _barnard_dc_drush_np_issue_mods($title, $extent, $date, $date_short);
+  $xml = _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short);
 
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
@@ -206,7 +206,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
       // Student publications MODS doesn't follow the book/newspaper template,
       // so we generate it here instead.
-      $xml = _barnard_dc_drush_page_mods($type, $title, $genre, $host_title, $host_id, $page_id, $date, '');
+      $xml = _bc_islandora_drush_page_mods($type, $title, $genre, $host_title, $host_id, $page_id, $date, '');
       break;
     case 'ms':
       $page_number = $data['page_number'];
@@ -244,7 +244,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   // Generate MODS here for book and newspaper pages.
   if (!isset($xml)) {
-    $xml = _barnard_dc_drush_page_mods($type, $title, $genre, $label, $id_short, $id_long, $date_created, $date_issued);
+    $xml = _bc_islandora_drush_page_mods($type, $title, $genre, $label, $id_short, $id_long, $date_created, $date_issued);
   }
   
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
@@ -330,15 +330,15 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 /**
  * Sets and processes derivative-creation batches.
  *
- * @see barnard_dc.drush_batch.inc
+ * @see bc_islandora.drush_batch.inc
  */
-function _barnard_dc_create_derivatives($objects, $type) {
-  require_once 'barnard_dc.drush_batch.inc';
+function _bc_islandora_create_derivatives($objects, $type) {
+  require_once 'bc_islandora.drush_batch.inc';
   foreach ($objects as $pid) {
     $book = islandora_object_load($pid);
     $pages = array_keys(islandora_paged_content_get_pages($book));
-    $img_batch = barnard_dc_create_images_batch($book, $pages);
-    $pdf_batch = barnard_dc_create_pdf_batch($book, $pages);
+    $img_batch = bc_islandora_create_images_batch($book, $pages);
+    $pdf_batch = bc_islandora_create_pdf_batch($book, $pages);
     $ocr_batch = islandora_paged_content_create_ocr_batch($book, $pages, array('language' => 'eng', 'preprocess' => FALSE));
     batch_set($img_batch);
     batch_set($pdf_batch);
@@ -379,7 +379,7 @@ function create_book_object($pid, $data) {
     $extent = $data[12] . ' pages';
     $description = $data[7];
 
-    $xml = _barnard_dc_drush_book_mods($title, $date, $extent, $description, $id_date);
+    $xml = _bc_islandora_drush_book_mods($title, $date, $extent, $description, $id_date);
 
     $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
     $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
@@ -454,7 +454,7 @@ function create_book_object($pid, $data) {
 /**
  * Helper function: returns structured data about a publication.
  */
-function _barnard_dc_pub_data($xml_file, $pid = '', $type = '', $page_number = '') {
+function _bc_islandora_pub_data($xml_file, $pid = '', $type = '', $page_number = '') {
   $xml = file_get_contents($xml_file);
   $mods = simplexml_load_string($xml);
   $data = array(
@@ -476,14 +476,14 @@ function _barnard_dc_pub_data($xml_file, $pid = '', $type = '', $page_number = '
 /**
  * Helper function: processes (ingests or purges) publication pages.
  */
-function _barnard_dc_process_pub_pages($parent_pid, $parent_xml_file, $path) {
+function _bc_islandora_process_pub_pages($parent_pid, $parent_xml_file, $path) {
   foreach (scandir($path) as $page) {
     if (preg_match('/^\./', $page) === 0 && preg_match('/\.tif$/', $page) !== 0) {
       $page_file = $path . '/' . $page;
       $page_number_padded = str_replace('.tif', '', end(explode('_', $page)));
       $page_number = preg_replace('/^0+/', '', $page_number_padded);
       $page_pid = $parent_pid . '-' . $page_number;
-      $page_data = _barnard_dc_pub_data($parent_xml_file, $issue_pid, 'page', $page_number);
+      $page_data = _bc_islandora_pub_data($parent_xml_file, $issue_pid, 'page', $page_number);
       $page_data['page_number'] = $page_number;
       $page_data['title'] .= ', page ' . $page_number;
       if (!islandora_object_load($page_pid)) {
@@ -573,36 +573,4 @@ function create_pub_object($pid, $data) {
   unset($dc_datastream);
 
   return $return;
-}
-
-function _barnard_dc_ms_transcript($ms_pid) {
-  module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
-  if ($ms_obj = islandora_object_load($ms_pid)) {
-    if (isset($ms_obj['TRANSCRIPT'])) {
-      drush_log(dt('Transcript already exists for object: @ms_pid', array('@ms_pid' => $ms_pid)), 'ok');
-      return;
-    }
-    else {
-      $ms_ts = '';
-    }
-    foreach (islandora_paged_content_get_pages($ms_obj) as $page_pid => $page_data) {
-      if ($page_obj = islandora_object_load($page_pid)) {
-        if ($page_ocr = islandora_datastream_load('OCR', $page_obj)) {
-          $ms_ts .= $page_ocr->getContent(NULL);
-        }
-      }
-      else {
-        drush_log(dt("Couldn't get page: @page_pid", array('@page_pid' => $page_pid)), 'warning');
-      }
-    }    
-    // Create transcript datastream.
-    $transcript_ds = $ms_obj->constructDatastream('TRANSCRIPT');
-    $transcript_ds->label = 'Transcript';
-    $transcript_ds->mimetype = 'text/plain';
-    $transcript_ds->setContentFromString($ms_ts);
-    $ms_obj->ingestDatastream($transcript_ds);
-  }
-  else {
-    drush_log(dt("Couldn't load object at pid = @pid", array('@pid' => $ms_pid)), 'error');
-  }
 }
