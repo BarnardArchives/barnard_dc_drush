@@ -1,16 +1,24 @@
 <?php
 
+/**
+ * @file
+ * Drush command definition for bc_islandora_purge_object.
+ */
+
+/**
+ * Implements hook_drush_command().
+ */
 function bc_islandora_purge_drush_command() {
-	return array(
-    'purge_object' => array(
+  return array(
+    'bc_islandora_purge_object' => array(
       'description' => 'Purges an object from the repository.',
       'arguments' => array(
         'pid' => 'A unique identifier.',
       ),
       'examples' => array(
-        'drush -u 1 purge_object bc:yearbook-1985'
+        'drush -u 1 bcipo bc:yearbook-1985',
       ),
-      'aliases' => array('bcipo', 'bdcpo'),
+      'aliases' => array('bcipo'),
     ),
   );
 }
@@ -18,7 +26,7 @@ function bc_islandora_purge_drush_command() {
 /**
  * Purges one or more islandora objects from the fedora repository.
  *
- * @param string $pids
+ * @param string $object_id
  *   The pid of the object to purge.
  */
 function drush_bc_islandora_purge_object($object_id) {

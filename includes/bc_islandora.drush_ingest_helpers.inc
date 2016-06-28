@@ -10,6 +10,9 @@
 
 require_once 'bc_islandora.drush_mods_data.inc';
 
+/**
+ * Generates csv input for newspaper ingest.
+ */
 function _bc_islandora_drush_generate_newspaper_csv($directory, $data) {
   $year = $data['year'];
   $month = $data['month'];
@@ -119,12 +122,12 @@ function create_issue_object($pid, $data) {
   $mods_datastream->logMessage = 'MODS datastream created using Newspapers batch ingest script || SUCCESS';
 
   $object->ingestDatastream($mods_datastream);
-  
+
   try {
     $object->state = 'A';
     $ingest = $tuque->repository->ingestObject($object);
   }
-  catch(Exception $e) {
+  catch (Exception $e) {
     unset($object);
     throw($e);
   }
@@ -208,6 +211,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
       // so we generate it here instead.
       $xml = _bc_islandora_drush_page_mods($type, $title, $genre, $host_title, $host_id, $page_id, $date, '');
       break;
+
     case 'ms':
       $page_number = $data['page_number'];
       $label = $data['title'];
@@ -225,9 +229,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
     $command = 'convert -quiet -thumbnail 200x200 ' . $file_name . ' ' . $tmp_file;
     exec($command, $exec_output, $exec_return);
     if ($exec_return == 0) {
-      // $book_item = new FedoraObject($collection_pid, $connection->repository);
       $book_item = $repository->constructObject($collection_pid);
-      // $tn_datastream = new NewFedoraDatastream('TN', 'M', $book_item, $connection->repository);
       $tn_datastream = $book_item->constructDatastream('TN');
       $tn_datastream->setContentFromFile($tmp_file, FALSE);
       $tn_datastream->label = 'Thumbnail';
@@ -246,7 +248,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   if (!isset($xml)) {
     $xml = _bc_islandora_drush_page_mods($type, $title, $genre, $label, $id_short, $id_long, $date_created, $date_issued);
   }
-  
+
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
@@ -268,7 +270,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   $object->label = $label;
 
-  // $dc_datastream = new NewFedoraDatastream('DC', 'X', $object, $connection->repository);
   $dc_datastream = $object->constructDatastream('DC');
 
   $dc_datastream->content = $dc;
@@ -277,7 +278,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   $object->ingestDatastream($dc_datastream);
 
-  // $mods_datastream = new NewFedoraDatastream('MODS', 'X', $object, $connection->repository);
   $mods_datastream = $object->constructDatastream('MODS');
 
   $mods_datastream->content = $xml;
@@ -289,7 +289,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   $object->ingestDatastream($mods_datastream);
 
-  // $image_datastream = new NewFedoraDatastream('OBJ', 'M', $object, $connection->repository);
   $image_datastream = $object->constructDatastream('OBJ');
   $image_datastream->setContentFromFile($file_name, FALSE);
   // $image_datastream->label = 'TIFF image';
@@ -332,7 +331,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
  *
  * @see bc_islandora.drush_batch.inc
  */
-function _bc_islandora_create_derivatives($objects, $type) {
+function _bc_islandora_create_derivatives($objects) {
   require_once 'bc_islandora.drush_batch.inc';
   foreach ($objects as $pid) {
     $book = islandora_object_load($pid);
@@ -355,8 +354,9 @@ function create_book_object($pid, $data) {
 
   $tuque = islandora_get_tuque_connection();
   $connection = $tuque->connection;
-  
-  // Create the OBJ here, for FEDORA/ISLANDORA RELS-EXT/INT relationship->add method.
+
+  // Create the OBJ here, for FEDORA/ISLANDORA RELS-EXT/INT relationship->add
+  // method.
   $object = new NewFedoraObject($pid, $connection->repository);
 
   $dsid = 'MODS';
@@ -433,7 +433,7 @@ function create_book_object($pid, $data) {
     $object->state = 'A';
     $ingest = $tuque->repository->ingestObject($object);
   }
-  catch(Exception $e) {
+  catch (Exception $e) {
     unset($object);
     throw($e);
   }
@@ -531,7 +531,6 @@ function create_pub_object($pid, $data) {
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
-  //$dc_datastream = new NewFedoraDatastream('DC', 'X', $object, $connection->repository);
   $dc_datastream = $object->constructDatastream('DC');
 
   $dc_datastream->content = $dc;
@@ -540,7 +539,6 @@ function create_pub_object($pid, $data) {
 
   $object->ingestDatastream($dc_datastream);
 
-  // $mods_datastream = new NewFedoraDatastream('MODS', 'X', $object, $connection->repository);
   $mods_datastream = $object->constructDatastream('MODS');
 
   $mods_datastream->setContentFromString($xml);
@@ -556,7 +554,7 @@ function create_pub_object($pid, $data) {
     $object->state = 'A';
     $ingest = $tuque->repository->ingestObject($object);
   }
-  catch(Exception $e) {
+  catch (Exception $e) {
     unset($object);
     throw($e);
   }

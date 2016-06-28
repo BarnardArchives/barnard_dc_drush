@@ -5,6 +5,7 @@
  * Custom drush commands for Barnard Digital Collections.
  *
  * Much of this was adapted from Robertson Library's drush code.
+ *
  * @see https://github.com/roblib/scripts/tree/master/drush/drupal7.
  */
 
@@ -44,7 +45,7 @@ function bc_islandora_temp_drush_command() {
 /**
  * Generates URL aliases for objects in the repo that don't have them.
  *
- * (Requires islandora_pathauto module.)
+ * Requires islandora_pathauto module.
  */
 function drush_bc_islandora_temp_generate_url_aliases() {
   $everything_query = <<<SPARQL
@@ -119,80 +120,9 @@ EOQ;
   }
 }
 
-function _ms_default_mods($ms_obj) {
-  $ms_title = $ms_obj->label;
-  $ms_id = 'BC13-58_' . preg_replace('/[^\p{L}\p{N}]/u', '', str_replace("'", '', $ms_title));
-
-  return <<<MODS
-<?xml version="1.0" encoding="UTF-8"?>
-<mods xmlns="http://www.loc.gov/mods/v3" xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.loc.gov/mods/v3     http://www.loc.gov/mods/v3/mods-3-5.xsd">
-  <titleInfo>
-    <title>{$ms_title}</title>
-  </titleInfo>
-  <identifier type="local">{$ms_id}</identifier>
-  <typeOfResource>text</typeOfResource>
-  <genre authority="aat" authorityURI="http://vocab.getty.edu/aat" valueURI="http://vocab.getty.edu/aat/300248280">brochures</genre>
-  <originInfo>
-    <place>
-      <placeTerm type="text" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/n79007751">New York (N.Y.)</placeTerm>
-    </place>
-    <place>
-      <placeTerm type="code" authority="marccountry">nyu</placeTerm>
-    </place>
-    <publisher>Online collection published by Barnard Archives and Special Collections, Barnard College.</publisher>
-    <dateCreated encoding="w3cdtf" keyDate="yes" point="start" qualifier="approximate">1970</dateCreated>
-    <dateCreated encoding="w3cdtf" point="end" qualifier="approximate">1980</dateCreated>
-  </originInfo>
-  <language>
-    <languageTerm type="text" authority="iso639-2b">English</languageTerm>
-    <languageTerm type="code" authority="iso639-2b">eng</languageTerm>
-  </language>
-  <physicalDescription>
-    <form authority="marcform">print</form>
-    <form authority="marcform">elecronic</form>
-    <extent>2 pages</extent>
-    <digitalOrigin>reformatted digital</digitalOrigin>
-    <internetMediaType>image/tiff</internetMediaType>
-  </physicalDescription>
-  <abstract></abstract>
-  <subject>
-    <name type="corporate" authority="naf" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/n79065105">
-      <namePart>Barnard College</namePart>
-    </name>
-  </subject>
-  <relatedItem type="host">
-    <titleInfo>
-      <title>Academic Departments and Programs Barnard Center for Research on Women</title>
-    </titleInfo>
-    <identifier type="local">BC37-02</identifier>
-    <typeOfResource>still image</typeOfResource>
-  </relatedItem>
-  <accessCondition type="useAndReproduction">Contact the Archives at archives@barnard.edu for more information on access and use.</accessCondition>
-  <location displayLabel="not a PURL">
-    <physicalLocation authority="marcorg">NNC</physicalLocation>
-    <physicalLocation authority="marcorg">NyNyBAW</physicalLocation>
-    <physicalLocation>Barnard College Library (New York, N.Y.)</physicalLocation>
-    <shelfLocator>test</shelfLocator>
-  </location>
-  <recordInfo>
-    <recordContentSource>Barnard Archives and Special Collections</recordContentSource>
-    <recordContentSource authority="marcorg">NNC</recordContentSource>
-    <recordContentSource authority="marcorg">NyNyBAW</recordContentSource>
-    <languageOfCataloging>
-      <languageTerm type="text" authority="iso639-2b">English</languageTerm>
-      <languageTerm type="code" authority="iso639-2b">eng</languageTerm>
-    </languageOfCataloging>
-  </recordInfo>
-  <name type="corporate" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/no90023871">
-    <namePart>Barnard Center for Research on Women</namePart>
-    <role>
-      <roleTerm type="text" authority="marcrelator">Creator</roleTerm>
-    </role>
-  </name>
-</mods>
-MODS;
-}
-
+/**
+ * Fixes publication metadata.
+ */
 function drush_bc_islandora_temp_fix_pub_metadata($pid) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
 
@@ -264,6 +194,9 @@ EOQ;
   }
 }
 
+/**
+ * Update page-level publication metadata.
+ */
 function _update_page_mods($parent_obj, $page_pid) {
   $page_obj = islandora_object_load($page_pid);
   $page_mods = simplexml_load_string($page_obj['MODS']->getContent(NULL));

@@ -35,7 +35,6 @@ function bc_islandora_create_images_batch(AbstractObject $paged_content, array $
     'init_message' => t('Preparing to create images for @label ...', array('@label' => $paged_content->label)),
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
-    // 'file' => drupal_get_path('module', 'bc_islandora') . '/includes/bc_islandora.drush_batch.inc',
     'file' => 'sites/all/drush/includes/bc_islandora.drush_batch.inc',
   );
 }
@@ -50,7 +49,7 @@ function bc_islandora_create_images_batch(AbstractObject $paged_content, array $
  * @param array $context
  *   The context of this batch operation.
  */
-function bc_islandora_create_images_batch_operation($paged_content_id, array $pages, &$context) {
+function bc_islandora_create_images_batch_operation(AbstractObject $paged_content_id, array $pages, array &$context) {
   $paged_content = islandora_object_load($paged_content_id);
   $page = islandora_paged_content_start_batch_operation($pages, $context);
   if ($page) {
@@ -183,7 +182,6 @@ function bc_islandora_create_pdf_batch(AbstractObject $paged_content, array $pag
     'init_message' => t('Preparing to create PDF from @label ...', array('@label' => $paged_content->label)),
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
-    // 'file' => drupal_get_path('module', 'bc_islandora') . '/includes/bc_islandora.drush_batch.inc',
     'file' => 'sites/all/drush/includes/bc_islandora.drush_batch.inc',
   );
 }
@@ -196,7 +194,7 @@ function bc_islandora_create_pdf_batch(AbstractObject $paged_content, array $pag
  * @param array $context
  *   The context of this batch operation.
  */
-function bc_islandora_create_pdf_paged_content_batch_operation($paged_content_id, &$context) {
+function bc_islandora_create_pdf_paged_content_batch_operation($paged_content_id, array &$context) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   $paged_content = islandora_object_load($paged_content_id);
   if (empty($context['results']['pages'])) {
@@ -230,7 +228,7 @@ function bc_islandora_create_pdf_paged_content_batch_operation($paged_content_id
  * @param array $context
  *   The context of this batch operation.
  */
-function bc_islandora_create_pdf_page_batch_operation(array $pages, array $options, &$context) {
+function bc_islandora_create_pdf_page_batch_operation(array $pages, array $options, array &$context) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   $page = islandora_paged_content_start_batch_operation($pages, $context);
   if ($page) {

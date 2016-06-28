@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Drush command definition for bc_islandora_ingest_objects.
+ */
+
 require_once 'includes/bc_islandora.drush_ingest_methods.inc';
 
 /**
@@ -7,7 +12,7 @@ require_once 'includes/bc_islandora.drush_ingest_methods.inc';
  */
 function bc_islandora_ingest_drush_command() {
   return array(
-    'ingest_objects' => array(
+    'bc_islandora_ingest_objects' => array(
       'description' => 'Ingests objects.',
       'arguments' => array(
         'query_file' => 'A csv file containing information about the objects to be ingested.',
@@ -20,7 +25,14 @@ function bc_islandora_ingest_drush_command() {
         'identifier' => 'The identifier of the collection to ingest.',
       ),
       'examples' => array(
-        'drush -u 1 --uri=http://localhost bdcio /path/to/pages.csv',
+        'drush -u 1 --uri=http://localhost bciio /path/to/pages.csv',
+        'drush -u 1 bciio --type=newspaper --year=1991 /home/vagrant/bulletin-subset',
+        'drush -u 1 bciio --type=newspaper /home/vagrant/bulletin-subset/1991pages.csv',
+        'drush -u 1 bciio --type=book --year=1985 /home/vagrant/yearbook/yearbook.csv',
+        'drush -u 1 bciio --type=student_publication /home/vagrant/student-pubs',
+        'drush -u 1 bciio --type=student_publication --identifier=BC12-04 /home/vagrant/student-pubs',
+        'drush -u 1 bciio --type=manuscript /home/vagrant/manuscripts/metadata.csv',
+        'drush -u 1 bciio --type=manuscript --identifier=BC13-58_71Q-Daly1972 /home/vagrant/manuscripts/metadata.csv',
       ),
       'aliases' => array('bciio'),
       // We can pass in users id on the command line using drush -u.
@@ -29,6 +41,9 @@ function bc_islandora_ingest_drush_command() {
   );
 }
 
+/**
+ * Ingests objects using the appropriate ingest method and options.
+ */
 function drush_bc_islandora_ingest_objects($query_file) {
   if ($type = drush_get_option('type')) {
     $function = "_bc_islandora_drush_ingest_{$type}";
@@ -52,4 +67,3 @@ function drush_bc_islandora_ingest_objects($query_file) {
     drush_log(dt("Didn't get ingest method at type = @type", array('@type' => $type)), 'error');
   }
 }
-

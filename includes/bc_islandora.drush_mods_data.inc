@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Helper functions for generating MODS metadata during bulk ingest.
+ */
+
+/**
+ * Generates newspaper issue metadata.
+ */
 function _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short) {
   return <<<ISSUE_MODS
 <mods xmlns="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd">
@@ -30,6 +38,9 @@ function _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short) 
 ISSUE_MODS;
 }
 
+/**
+ * Generates (book, newspaper, or publication) page metadata.
+ */
 function _bc_islandora_drush_page_mods($type, $title, $genre, $host_title, $host_id, $page_id, $date_created, $date_issued) {
   switch ($type) {
     case 'pub':
@@ -57,7 +68,8 @@ function _bc_islandora_drush_page_mods($type, $title, $genre, $host_title, $host
   </originInfo>
 </mods>
 PUB_PAGE_MODS;
-    break;
+      break;
+
     case 'newspaper':
     case 'book':
     default:
@@ -81,13 +93,16 @@ PUB_PAGE_MODS;
   <identifier type="local">$page_id</identifier>
 </mods>
 DEFAULT_PAGE_MODS;
-    break;
+      break;
   }
   return $mods_xml;
 }
 
+/**
+ * Generates book metadata.
+ */
 function _bc_islandora_drush_book_mods($title, $date, $extent, $description, $id_date) {
-	return <<<BOOK_MODS
+  return <<<BOOK_MODS
 <mods xmlns="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd">
   <titleInfo>
     <title>$title</title>
@@ -176,7 +191,7 @@ BOOK_MODS;
 }
 
 /**
- * Generates manuscript MODS.
+ * Generates manuscript metadata.
  */
 function _bc_islandora_ms_mods($ms_data) {
   if (isset($ms_data['type']) && $ms_data['type'] == 'page') {
@@ -245,7 +260,7 @@ function _bc_islandora_ms_mods($ms_data) {
   }
   else {
     $date_xml .= "
-    <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\">{$ms_data['date']}</dateCreated>";  
+    <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\">{$ms_data['date']}</dateCreated>";
   }
   $date_xml .= "
   </originInfo>";

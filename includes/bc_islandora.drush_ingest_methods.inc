@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Ingest methods for `drush bc_islandora_ingest_objects`.
+ */
+
 require_once 'bc_islandora.drush_ingest_helpers.inc';
 
 /**
- * Ingests a newspaper object. Can be invoked by drush_bc_islandora_ingest_objects().
+ * Ingests a newspaper object.
  *
  * Sample CSV data:
  * title,date,filename,"page number",type,extent
@@ -25,7 +30,7 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
     $fh = fopen($query_file, 'r');
   }
 
-  $path_name = dirname($query_file);
+  $path_name = dirname($csv_file);
   $line_number = 0;
   $issues = array();
 
@@ -74,9 +79,12 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
     }
   }
   // TODO should we keep this?
-  _bc_islandora_create_derivatives($issues);
+  // _bc_islandora_create_derivatives($issues);
 }
 
+/**
+ * Ingests a book.
+ */
 function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
@@ -97,7 +105,7 @@ function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
     array_shift($vol_parts);
     $book_pid = 'bc:yearbook-' . implode('.', $vol_parts);
     $pages = $data[12];
-    
+
     if (!islandora_object_load($book_pid)) {
       drush_log("Creating book at pid = @pid", array('@pid' => $book_pid), 'ok');
       $book_pid = create_book_object($book_pid, $data);
@@ -297,7 +305,8 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
             $ms_data['type'] = 'page';
             $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
 
-            // TODO this is redundant now. Find another way to check if page exists?
+            // TODO this is redundant now. Find another way to check if page
+            // exists?
             if (!islandora_object_load($page_pid)) {
               create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_parent_pid, 'bcrw', 'ms');
             }
