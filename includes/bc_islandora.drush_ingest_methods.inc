@@ -247,7 +247,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
       $ms_data['id'] = $data[0];
       // Skip this row if we got an id option and this id doesn't match.
       if ($id_option && $id_option != $ms_data['id']) {
-        drush_log("Skipped due to ID mismatch: " . $ms_data['id'], 'notice');
+        drush_log("Skipped due to ID mismatch: " . $ms_data['id'], 'error');
         continue;
       }
       $ms_data_dir = dirname($md_file) . '/' . $ms_data['id'];
@@ -289,12 +289,13 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
 
         $ms_pid = 'bcrw';
 
+        // Create a new pub for all files, using next available INT in namespace.
         if (!islandora_object_load($ms_pid)) {
+          drush_log("Creating publication object for: " . $ms_data['id'], 'ok');
           $ms_data['collection_pid'] = variable_get('bc_islandora_manuscripts_pid', 'islandora:manuscriptCollection');
           $ms_data['cm_pid'] = 'islandora:manuscriptCModel';
           $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
-          // $ms_parent_pid = create_pub_object($ms_pid, $ms_data);
-          $ms_parent_pid = create_pub_object('bcrw', $ms_data);
+          $ms_parent_pid = create_pub_object($ms_pid, $ms_data);
         }
         else {
           drush_log(dt('Object exists: @ms_pid', array('@ms_pid' => $ms_pid)), 'ok');
@@ -303,6 +304,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
         foreach (scandir($ms_data_dir) as $ms_file) {
           // Create a page object for each tif file we find.
           if (preg_match('/\.tif$/', $ms_file)) {
+            drush_log("Creating page object for: " . $ms_file, 'ok');
             $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
             $page_number = preg_replace('/^0+/', '', $page_padded);
             $page_pid = $ms_pid . '-' . $page_number;
@@ -313,6 +315,10 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
             $ms_data['cm_pid'] = $ms_pid;
             $ms_data['type'] = 'page';
             $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
+
+            // Check if a text file is present as OCR.
+            $ocr_file = $ms_data_dir . '/' . str_replace('.tif','.txt',$ms_file);
+            $ms_data['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
 
             // TODO this is redundant now. Find another way to check if page
             // exists?

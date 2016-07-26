@@ -301,6 +301,18 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   $object->ingestDatastream($image_datastream);
 
+  if (!empty($data['ocr'])) {
+    $ocr_datastream = $object->constructDatastream('OCR');
+    $ocr_datastream->setContentFromFile($data['ocr'], FALSE);
+    $ocr_datastream->label = 'OCR';
+    $ocr_datastream->mimetype = 'text/plain';
+    $ocr_datastream->checksum = TRUE;
+    $ocr_datastream->checksumType = 'MD5';
+    $ocr_datastream->logMessage = 'OCR set from text file || SUCCESS';
+
+    $object->ingestDatastream($ocr_datastream);
+  }
+
   try {
     $object->state = 'A';
     $ingest = $connection->repository->ingestObject($object);
