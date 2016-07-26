@@ -240,14 +240,15 @@ function _bc_islandora_drush_ingest_student_publication($directory, $options = a
  */
 function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
   $id_option = $options['identifier'];
-
   if (file_exists($md_file)) {
     $md_fh = fopen($md_file, 'r');
     while (($data = fgetcsv($md_fh)) !== FALSE) {
+      print_r($data);
       $ms_data = array();
       $ms_data['id'] = $data[0];
       // Skip this row if we got an id option and this id doesn't match.
       if ($id_option && $id_option != $ms_data['id']) {
+        drush_log("Skipped due to ID mismatch: " . $ms_data['id'], 'notice');
         continue;
       }
       $ms_data_dir = dirname($md_file) . '/' . $ms_data['id'];
@@ -257,25 +258,28 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
         // If we found an XML file that matches the naming convention, assume
         // it contains the MODS data we want.
         if (file_exists($ms_mods_file)) {
+          drush_log("Found XML mods file for: " . $ms_data['id'], 'ok');
           $ms_data['xml'] = file_get_contents($ms_mods_file);
         }
         // Otherwise, generate MODS using the other csv fields.
         else {
+          drush_log("Building mods from CSV MD file for: " . $ms_data['id'], 'ok');
           $ms_data['creator'] = $data[2];
           $ms_data['creator_uri'] = $data[3];
-          $ms_data['resource_type'] = $data[4];
-          $ms_data['genre'] = $data[5];
-          $ms_data['genre_uri'] = $data[6];
-          $ms_data['date'] = $data[7];
+          // ADD MORE CREATORS ~ need three more creators/c.uris.
+          $ms_data['resource_type'] = $data[10];
+          $ms_data['genre'] = $data[11];
+          $ms_data['genre_uri'] = $data[12];
+          $ms_data['date'] = $data[13];
           // $ms_data['date_qualifier'] = $data[8];
           // NB start and end date only present if date is approx range...
-          $ms_data['date_start'] = $data[8];
-          $ms_data['date_end'] = $data[9];
-          $ms_data['extent'] = $data[10];
-          $ms_data['description'] = $data[11];
-          $ms_data['location'] = $data[12];
-          $ms_data['topic'] = $data[13];
-          $ms_data['topic_uri'] = $data[14];
+          $ms_data['date_start'] = $data[15];
+          $ms_data['date_end'] = $data[16];
+          $ms_data['extent'] = $data[17];
+          $ms_data['description'] = $data[18];
+          $ms_data['location'] = $data[19];
+          $ms_data['topic'] = $data[20];
+          $ms_data['topic_uri'] = $data[21];
         }
 
         $ms_pid = 'bcrw';
