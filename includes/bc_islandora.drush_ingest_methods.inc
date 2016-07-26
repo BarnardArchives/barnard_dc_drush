@@ -243,7 +243,6 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
   if (file_exists($md_file)) {
     $md_fh = fopen($md_file, 'r');
     while (($data = fgetcsv($md_fh)) !== FALSE) {
-      print_r($data);
       $ms_data = array();
       $ms_data['id'] = $data[0];
       // Skip this row if we got an id option and this id doesn't match.
@@ -264,9 +263,15 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
         // Otherwise, generate MODS using the other csv fields.
         else {
           drush_log("Building mods from CSV MD file for: " . $ms_data['id'], 'ok');
+
           $ms_data['creator'] = $data[2];
           $ms_data['creator_uri'] = $data[3];
-          // ADD MORE CREATORS ~ need three more creators/c.uris.
+          $ms_data['creator1'] = $data[4];
+          $ms_data['creator1_uri'] = $data[5];
+          $ms_data['creator2'] = $data[6];
+          $ms_data['creator2_uri'] = $data[7];
+          $ms_data['creator3'] = $data[8];
+          $ms_data['creator3_uri'] = $data[9];
           $ms_data['resource_type'] = $data[10];
           $ms_data['genre'] = $data[11];
           $ms_data['genre_uri'] = $data[12];

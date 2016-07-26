@@ -241,18 +241,24 @@ function _bc_islandora_ms_mods($ms_data) {
     </languageOfCataloging>
   </recordInfo>";
   }
-  // TODO how to handle multiple creators?
-  if (!empty($ms_data['creator'])) {
-    $creator_xml = isset($ms_data['creator_uri']) && !empty($ms_data['creator_uri']) ?
-    "<name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$ms_data['creator_uri']}\">" :
-    "<name type=\"personal\" authority=\"local\">";
-    $creator_xml .= "
-    <namePart>{$ms_data['creator']}</namePart>
-    <role>
-      <roleTerm type=\"text\" authority=\"marcrelator\">Creator</roleTerm>
-    </role>";
-    $creator_xml .= "</name>";
+
+  // @INFO Note that the first creator variable has no number.
+  $creators = array('creator','creator1','creator2','creator3');
+  $creator_xml = "";
+  foreach ($creators as $creator) {
+    if (!empty($ms_data[$creator])) {
+      $creator_xml .= isset($ms_data[$creator.'_uri']) && !empty($ms_data[$creator.'_uri']) ?
+      "<name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$ms_data[$creator.'_uri']}\">" :
+      "<name type=\"personal\" authority=\"local\">";
+      $creator_xml .= "
+      <namePart>{$ms_data[$creator]}</namePart>
+      <role>
+        <roleTerm type=\"text\" authority=\"marcrelator\">Creator</roleTerm>
+      </role>\n";
+      $creator_xml .= "</name>\n";
+    }
   }
+
   if (!empty($ms_data['date_start']) && !empty($ms_data['date_end'])) {
     $date_xml .= "
     <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\" point=\"start\" qualifier=\"approximate\">{$ms_data['date_start']}</dateCreated>
