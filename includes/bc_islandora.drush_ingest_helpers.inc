@@ -334,6 +334,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   unset($image_datastream);
   unset($mods_datastream);
   unset($dc_datastream);
+  unset($ocr_datastream);
 
   return $pid;
 }

@@ -276,7 +276,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
           $ms_data['genre'] = $data[11];
           $ms_data['genre_uri'] = $data[12];
           $ms_data['date'] = $data[13];
-          // $ms_data['date_qualifier'] = $data[8];
+          // $ms_data['date_qualifier'] = $data[14];
           // NB start and end date only present if date is approx range...
           $ms_data['date_start'] = $data[15];
           $ms_data['date_end'] = $data[16];
