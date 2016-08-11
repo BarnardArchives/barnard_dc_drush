@@ -24,13 +24,15 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
   // directory, generate a csv input file first.
   if ($options['generate-csv'] !== NULL || is_dir($query_file)) {
     $csv_file = _bc_islandora_drush_generate_newspaper_csv($query_file, $options);
-    $fh = fopen($csv_file, 'r');
+    drush_log("Generated CSV file, please review it before continuing.", 'error');
+    return;
+    // $fh = fopen($csv_file, 'r');
   }
   else {
     $fh = fopen($query_file, 'r');
   }
 
-  $path_name = dirname($csv_file);
+  $path_name = empty($csv_file) ? dirname($query_file) : dirname($csv_file);
   $line_number = 0;
   $issues = array();
 
@@ -65,15 +67,21 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
         $issues[] = $issue_pid;
       }
       elseif ($type == 'page') {
+        // Sample issue pid: bc:bulletin-19901001.
         // Sample page pid: bc:bulletin-19901001-1.
+        $issue_pid = 'bc:bulletin-' . date('Ymd', strtotime($data[1]));
         $page_pid = 'bc:bulletin-' . date('Ymd', strtotime($data[1])) . '-' . $data[3];
 
         if (!islandora_object_load($page_pid)) {
           create_page_object($path_name, $data, $issue_pid, $page_pid, 'newspaper');
         }
-        // If we got an existing page, just skip it without prompting.
+        // If we found an existing page, prompt user on action.
         else {
-          drush_log(dt('Page exists at pid = @pid; skipping...', array('@pid' => $page_pid)), 'warning');
+          $continue = drush_prompt(dt("Page exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $page_pid)));
+          if (preg_match('/^y/', strtolower($continue)) === 1) {
+            drush_bc_islandora_purge_object($page_pid);
+            create_page_object($path_name, $data, $issue_pid, $page_pid, 'newspaper');
+          }
         }
       }
     }
