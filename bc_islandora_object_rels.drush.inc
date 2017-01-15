@@ -43,13 +43,21 @@ function drush_bc_islandora_object_rels($object_id) {
   $collection = drush_get_option('collection');
 
   foreach ($pids as $pid) {
-    drush_log(dt('Updating rels of object at PID: @pid...', array('@pid' => $pid)), 'ok');
+    drush_log(dt('Updating rels of object at PID: @pid', array('@pid' => $pid)), 'ok');
     try {
       $object = islandora_object_load($pid);
       if ($object) {
-        // testing
-        drush_log($object->relationships->get(), 'ok');
-        drush_log($object->relationships->get(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $collection), 'ok');
+        $existing_rels = $object->relationships->get(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $collection);
+        if (empty($existing_rels)) {
+          $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $collection);
+          drush_log(dt('Added @pid to @collection', array('@pid' => $pid, '@collection' => $collection)), 'ok');
+        }
+        else {
+          drush_log(dt('@pid already exists in @collection', array('@pid' => $pid, '@collection' => $collection)), 'ok');
+        }
+      }
+      else {
+       drush_log(dt('Could not load the object at @pid.', array('@pid' => $pid)), 'warning');
       }
     }
     catch (Exception $e) {
