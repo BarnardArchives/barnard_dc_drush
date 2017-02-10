@@ -22,13 +22,13 @@ function _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short) 
     <internetMediaType>image/tiff</internetMediaType>
     <digitalOrigin>reformatted digital</digitalOrigin>
   </physicalDescription>
-  <relatedItem type="host"> 
-    <titleInfo> 
-      <title>Barnard Bulletin</title> 
-    </titleInfo> 
-    <typeOfResource>text</typeOfResource> 
-    <identifier type="local">BC12-03</identifier> 
-  </relatedItem> 
+  <relatedItem type="host">
+    <titleInfo>
+      <title>Barnard Bulletin</title>
+    </titleInfo>
+    <typeOfResource>text</typeOfResource>
+    <identifier type="local">BC12-03</identifier>
+  </relatedItem>
   <originInfo>
     <dateIssued encoding="w3cdtf">$date</dateIssued>
     <dateCreated encoding="w3cdtf">$date</dateCreated>
@@ -83,13 +83,13 @@ PUB_PAGE_MODS;
     $date_issued
     $date_created
   </originInfo>
-  <relatedItem type="host"> 
-    <titleInfo> 
-      <title>$title</title> 
-    </titleInfo> 
-    <typeOfResource>text</typeOfResource> 
-    <identifier type="local">$host_id</identifier> 
-  </relatedItem> 
+  <relatedItem type="host">
+    <titleInfo>
+      <title>$title</title>
+    </titleInfo>
+    <typeOfResource>text</typeOfResource>
+    <identifier type="local">$host_id</identifier>
+  </relatedItem>
   <identifier type="local">$page_id</identifier>
 </mods>
 DEFAULT_PAGE_MODS;
@@ -160,21 +160,21 @@ function _bc_islandora_drush_book_mods($title, $date, $extent, $description, $id
     </name>
   </subject>
 
-  <relatedItem type="host"> 
-    <titleInfo> 
-      <title>Mortarboard</title> 
-    </titleInfo> 
-    <typeOfResource>text</typeOfResource> 
-    <identifier type="local">BC12-01</identifier> 
-  </relatedItem> 
+  <relatedItem type="host">
+    <titleInfo>
+      <title>Mortarboard</title>
+    </titleInfo>
+    <typeOfResource>text</typeOfResource>
+    <identifier type="local">BC12-01</identifier>
+  </relatedItem>
 
   <identifier type="local">BC12-01_$id_date</identifier>
 
-  <location> 
-    <physicalLocation authority="marcorg">NNC</physicalLocation> 
-    <physicalLocation authority="marcorg">NyNyBAW</physicalLocation> 
-    <physicalLocation>Barnard College Library (New York, N.Y.)</physicalLocation> 
-  </location> 
+  <location>
+    <physicalLocation authority="marcorg">NNC</physicalLocation>
+    <physicalLocation authority="marcorg">NyNyBAW</physicalLocation>
+    <physicalLocation>Barnard College Library (New York, N.Y.)</physicalLocation>
+  </location>
 
   <accessCondition type="useAndReproduction">This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License. Contact the Archives at archives@barnard.edu for more information on access and use, including commercial uses.</accessCondition>
 
@@ -209,7 +209,7 @@ function _bc_islandora_ms_mods($ms_data) {
     $extent_xml = "
   <physicalDescription>
     <form authority=\"marcform\">print</form>
-    <form authority=\"marcform\">elecronic</form>
+    <form authority=\"marcform\">electronic</form>
     <extent>{$ms_data['extent']}</extent>
     <digitalOrigin>reformatted digital</digitalOrigin>
     <internetMediaType>image/tiff</internetMediaType>
@@ -328,5 +328,207 @@ function _bc_islandora_ms_mods($ms_data) {
     $mods_xml .= "{$record_info_xml}";
   }
   $mods_xml .= "\n</mods>";
+  return $mods_xml;
+}
+
+/**
+ * Generates DIARIES meta data.
+ *
+ * The formatting of this section is purposeful.
+ * CSV Row processor for Barnard College Diaries.
+ */
+function _bc_islandora_diaries_mods($mods_data, $type) {
+  if ($type == 'page') {
+    $date_xml = "
+  <originInfo>";
+  }
+  // These mods fields are not part of our page mods, so if page, skip.
+  else {
+    $date_xml = "
+  <originInfo>
+    <place>
+      <placeTerm type=\"text\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/n79007751\">New York (N.Y.)</placeTerm>
+    </place>
+    <place>
+      <placeTerm type=\"code\" authority=\"marccountry\">nyu</placeTerm>
+    </place>
+    <publisher>Online collection published by Barnard Archives and Special Collections, Barnard College.</publisher>";
+
+    $extent_xml = "
+  <physicalDescription>
+    <form authority=\"marcform\">print</form>
+    <form authority=\"marcform\">electronic</form>
+    <extent>{$mods_data['extent']}</extent>
+    <digitalOrigin>reformatted digital</digitalOrigin>
+    <internetMediaType>image/tiff</internetMediaType>
+  </physicalDescription>";
+
+    $description_xml = "
+  <abstract>{$mods_data['description']}</abstract>";
+
+    $location_xml = "
+  <location displayLabel=\"not a PURL\">
+    <physicalLocation authority=\"marcorg\">NNC</physicalLocation>
+    <physicalLocation authority=\"marcorg\">NyNyBAW</physicalLocation>
+    <physicalLocation>Barnard College Library (New York, N.Y.)</physicalLocation>
+    <shelfLocator>{$mods_data['location']}</shelfLocator>
+  </location>";
+
+    $language_xml = "
+  <language>
+    <languageTerm type=\"text\">English</languageTerm>
+    <languageTerm type=\"code\" authority=\"iso639-2b\">eng</languageTerm>
+  </language>";
+
+    $access_condition_xml = "
+  <accessCondition type=\"useAndReproduction\">Contact the Archives at archives@barnard.edu for more information on access and use.</accessCondition>";
+
+    $record_info_xml = "
+  <recordInfo>
+    <recordContentSource>Barnard Archives and Special Collections</recordContentSource>
+    <recordContentSource authority=\"marcorg\">NNC</recordContentSource>
+    <recordContentSource authority=\"marcorg\">NyNyBAW</recordContentSource>
+    <languageOfCataloging>
+      <languageTerm type=\"text\" authority=\"iso639-2b\">English</languageTerm>
+      <languageTerm type=\"code\" authority=\"iso639-2b\">eng</languageTerm>
+    </languageOfCataloging>
+  </recordInfo>";
+  }
+
+  // Creators - mods:name.
+  $creators = $mods_data['creators'];
+  $creator_xml = "";
+  foreach ($creators as $creator) {
+    if (!empty($creator['name'])) {
+      $creator_xml .= !empty($creator['uri']) ? "
+  <name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$creator['uri']}\">" : "<name type=\"personal\" authority=\"local\">";
+      $creator_xml .= "
+    <namePart>{$creator['name']}</namePart>
+      <role>
+        <roleTerm type=\"text\" authority=\"marcrelator\">Creator</roleTerm>
+      </role>
+  </name>";
+    }
+  }
+
+  // Topics - mods:subject.
+  $subject_xml = "
+  <subject>
+    <name type=\"corporate\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/n79065105\">
+      <namePart>Barnard College</namePart>
+    </name>
+  </subject>";
+
+  $subjects = $mods_data['topics'];
+  foreach ($subjects as $topic) {
+    if (!empty($topic['topic']) && !empty($topic['uri'])) {
+      $subject_xml .= "
+  <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"{$topic['uri']}\">
+    <topic>{$topic['topic']}</topic>
+  </subject>";
+    }
+  }
+
+  // Dates - mods:originInfo/date.
+  // Approx Date range.
+  if (!empty($mods_data['date_start_approx']) && !empty($mods_data['date_end_approx'])) {
+    $date_xml .= "
+    <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\" point=\"start\" qualifier=\"approximate\">{$mods_data['date_start_approx']}</dateCreated>
+    <dateCreated encoding=\"w3cdtf\" point=\"end\" qualifier=\"approximate\">{$mods_data['date_end_approx']}</dateCreated>";
+  }
+  // Exact Date range.
+  elseif (!empty($mods_data['date_start_exact']) && !empty($mods_data['date_end_exact'])) {
+    $date_xml .= "
+    <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\" point=\"start\">{$mods_data['date_start_exact']}</dateCreated>
+    <dateCreated encoding=\"w3cdtf\" point=\"end\">{$mods_data['date_end_exact']}</dateCreated>";
+  }
+  // Exact date, single.
+  else {
+    $date_xml .= "
+    <dateCreated encoding=\"w3cdtf\" keyDate=\"yes\">{$mods_data['date_exact']}</dateCreated>";
+  }
+
+  $date_xml .= "
+  </originInfo>";
+
+  // Not used elsewhere.
+  $related_item_xml = "
+  <relatedItem type=\"host\" displayLabel=\"Record Group\">
+    <titleInfo>
+      <title>Alum Scrapbooks</title>
+    </titleInfo>
+  </relatedItem>
+  <relatedItem type=\"host\">
+    <titleInfo>
+      <title>{$mods_data['related_item_title']}</title>
+    </titleInfo>
+    <identifier type=\"local\">{$mods_data['related_item_pid']}</identifier>
+    <typeOfResource>mixed material</typeOfResource>
+  </relatedItem>";
+
+  // Not used elsewhere.
+  $genre_xml .= "
+  <genre authority=\"aat\" authorityURI=\"http://vocab.getty.edu/aat\" valueURI=\"{$mods_data['genre_uri']}\">{$mods_data['genre']}</genre>";
+
+  // Not used elsewhere.
+  $identifier_xml .= "
+  <identifier type=\"local\">{$mods_data['id']}</identifier>";
+
+  // Not used elsewhere.
+  $titleinfo_title_xml .= "
+  <titleInfo>
+    <title>{$mods_data['title']}</title>
+  </titleInfo>";
+
+  // Not used elsewhere.
+  $resource_type_xml .= "
+  <typeOfResource>{$mods_data['resource_type']}</typeOfResource>";
+
+  // Build the final return mods record.
+  $mods_xml = "
+  <mods xmlns=\"http://www.loc.gov/mods/v3\" xmlns:mods=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd\">
+  $identifier_xml
+  $titleinfo_title_xml
+  $creator_xml
+  $resource_type_xml
+  $genre_xml
+  $date_xml";
+
+  if (isset($extent_xml)) {
+    $mods_xml .= "
+  $extent_xml";
+  }
+  if (isset($description_xml)) {
+    $mods_xml .= "
+  $description_xml";
+  }
+  if (isset($location_xml)) {
+    $mods_xml .= "
+  $location_xml";
+  }
+  if (isset($language_xml)) {
+    $mods_xml .= "
+  $language_xml";
+  }
+  if (isset($subject_xml)) {
+    $mods_xml .= "
+  $subject_xml";
+  }
+
+  $mods_xml .= "
+  $related_item_xml";
+
+  if (isset($access_condition_xml)) {
+    $mods_xml .= "
+  $access_condition_xml";
+  }
+  if (isset($record_info_xml)) {
+    $mods_xml .= "
+  $record_info_xml";
+  }
+
+  $mods_xml .= "
+  \n</mods>";
+
   return $mods_xml;
 }

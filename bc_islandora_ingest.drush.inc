@@ -33,6 +33,7 @@ function bc_islandora_ingest_drush_command() {
         'drush -u 1 bciio --type=student_publication --identifier=BC12-04 /home/vagrant/student-pubs',
         'drush -u 1 bciio --type=manuscript /home/vagrant/manuscripts/metadata.csv',
         'drush -u 1 bciio --type=manuscript --identifier=BC13-58_71Q-Daly1972 /home/vagrant/manuscripts/metadata.csv',
+        'drush -u 1 bciio --type=diary /home/vagrant/diaries/metadata.csv',
       ),
       'aliases' => array('bciio'),
       // We can pass in users id on the command line using drush -u.

@@ -345,3 +345,147 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
     drush_log(dt("File not found: @md_file", array('@md_file' => $md_file)), 'error');
   }
 }
+
+/**
+ * Ingests diaries.
+ *
+ * This ingest system is annoying but slowly becoming more robust after manus,
+ * and now diaries.
+ *
+ * Diaries use Islandora Book Model and Page Models.
+ *
+ * Barnard PID Examples:
+ * BC15-12 (Diary of Stella Bloch...)
+ * * diary collection: BC15-12:0 (The collection will be at 0.)
+ * * book level - BC15-12:1
+ * * page level - BC15-12:2,...,n
+ *
+ * Let's look at our folder structure, and what this script expects.
+ * ./diaries_metadata.csv
+ * ./BC15-12_diaryxyz/pages[0-999].tiff
+ * ./BC15-12_diaryxyz/pages[0-999].txt (*optional OCR stream to ingest)
+ *
+ * @file diaries_metadata.csv see: https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA/edit#gid=195535030
+ */
+function _bc_islandora_drush_ingest_diaries($md_file, $options) {
+  // Return early if md_file is not found.
+  if (!file_exists($md_file)) {
+    drush_log(dt("File not found: @md_file", array('@md_file' => $md_file)), 'error');
+    return;
+  }
+
+  $id_option = $options['identifier'];
+
+  $md_fh = fopen($md_file, 'r');
+  while (($data = fgetcsv($md_fh)) !== FALSE) {
+    $csv_row = array();
+    $csv_row['id'] = $data[0];
+    $filename_array = explode('_', $data[0]);
+    $ns = $filename_array[0];
+    $id = $filename_array[1];
+    // Skip this row if we got an id option and this id doesn't match.
+    if ($id_option && $id_option != $ns) {
+      drush_log("Skipped due to ID mismatch: " . $csv_row['id'], 'error');
+      continue;
+    }
+    $csv_directory = dirname($md_file) . '/' . $id;
+    if (is_dir($csv_directory)) {
+      $csv_row['title'] = $data[1];
+      $ms_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
+      // If we found an XML file that matches the naming convention, assume
+      // it contains the MODS data we want.
+      if (file_exists($ms_mods_file)) {
+        drush_log("Found XML mods file for: " . $csv_row['id'], 'ok');
+        $csv_row['xml'] = file_get_contents($ms_mods_file);
+      }
+      // Otherwise, generate MODS using the other csv fields.
+      else {
+        drush_log("Building mods from CSV MD file for: " . $csv_row['id'], 'ok');
+        $csv_row['id'] = $data[0];
+        $csv_row['title'] = $data[1];
+        // This can be automated by including a header row, and figuring out
+        // how many 'topics' there are, their location, etc. The mods script
+        // that fires after this CAN HANDLE multiples.
+        $csv_row['creators'][0]['name'] = $data[2];
+        $csv_row['creators'][0]['uri'] = $data[3];
+        $csv_row['resource_type'] = $data[4];
+        $csv_row['genre'] = $data[5];
+        $csv_row['genre_uri'] = $data[6];
+        $csv_row['date_exact'] = $data[7];
+        $csv_row['date_start_approx'] = $data[8];
+        $csv_row['date_end_approx'] = $data[9];
+        // NB start and end date only present if date is approx range...
+        $csv_row['date_start_exact'] = $data[10];
+        $csv_row['date_end_exact'] = $data[11];
+        $csv_row['extent'] = $data[12];
+        $csv_row['description'] = $data[13];
+        $csv_row['location'] = $data[14];
+        $csv_row['related_item_title'] = $data[15];
+        $csv_row['related_item_pid'] = $data[16];
+        // This can be automated by including a header row, and figuring out
+        // how many 'topics' there are, their location, etc. The mods script
+        // that fires after this CAN HANDLE multiples.
+        $csv_row['topics'][0]['topic'] = $data[17];
+        $csv_row['topics'][0]['uri'] = $data[18];
+        $csv_row['topics'][1]['topic'] = $data[19];
+        $csv_row['topics'][1]['uri'] = $data[20];
+        $csv_row['topics'][2]['topic'] = $data[21];
+        $csv_row['topics'][2]['uri'] = $data[22];
+        $csv_row['topics'][3]['topic'] = $data[23];
+        $csv_row['topics'][3]['uri'] = $data[24];
+        $csv_row['topics'][4]['topic'] = $data[25];
+        $csv_row['topics'][4]['uri'] = $data[26];
+        $csv_row['topics'][5]['topic'] = $data[27];
+        $csv_row['topics'][5]['uri'] = $data[28];
+        $csv_row['topics'][6]['topic'] = $data[29];
+        $csv_row['topics'][6]['uri'] = $data[30];
+      }
+
+      // Now we can create our object.
+      $book_object_pid = $ns;
+      // Create a new pub for all files, using next available INT in namespace.
+      if (!islandora_object_load($book_object_pid)) {
+        drush_log("Creating diary (book) object for: " . $csv_row['id'], 'ok');
+        $csv_row['collection_pid'] = variable_get('bc_islandora_diaries_pid', 'islandora:bookCollection');
+        $csv_row['cm_pid'] = 'islandora:bookCModel';
+        $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'book');
+        drush_log($csv_row['xml'], 'ok');
+        // $ms_parent_pid = create_pub_object($book_object_pid, $csv_row);
+      }
+      else {
+        drush_log(dt('Object exists: @pid', array('@pid' => $book_object_pid)), 'ok');
+      }
+
+      foreach (scandir($csv_directory) as $page_proc) {
+        // Create a page object for each tif file we find.
+        if (preg_match('/\.tif$/', $page_proc)) {
+          drush_log("Creating page object for: " . $page_proc, 'ok');
+          $page_padded = str_replace('.tif', '', array_pop(explode('_', $page_proc)));
+          $page_number = preg_replace('/^0+/', '', $page_padded);
+          $page_pid = $book_object_pid . '-' . $page_number;
+          $filepath = $csv_directory . '/' . $page_proc;
+          $csv_row['id'] = $data[0] . '_' . $page_padded;
+          $csv_row['page_number'] = $page_number;
+          $csv_row['title'] = $data[1] . ', page ' . $page_number;
+          $csv_row['cm_pid'] = 'islandora:pageCModel';
+          $csv_row['type'] = 'page';
+          $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'page');
+
+          // Check if a text file is present as OCR.
+          $ocr_file = $csv_directory . '/' . str_replace('.tif', '.txt', $page_proc);
+          $csv_row['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+
+          // TODO this is redundant now. Find another way to check if page
+          // exists?
+          if (!islandora_object_load($page_pid)) {
+            drush_log($csv_row['xml'], 'ok');
+            // create_page_object($csv_directory . '/' . $page_proc, $csv_row, $ms_parent_pid, 'bcrw', 'ms');
+          }
+          else {
+            drush_log(dt('Object exists: @page_pid', array('@page_pid' => $page_pid)), 'ok');
+          }
+        }
+      }
+    }
+  }
+}
