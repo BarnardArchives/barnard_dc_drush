@@ -78,14 +78,14 @@ function create_issue_object($pid, $data) {
 
   $dsid = 'MODS';
 
-  $content_model_pid = 'islandora:newspaperIssueCModel';
+  $content_model_type = 'islandora:newspaperIssueCModel';
 
   // TODO should be able to supply this as an argument. (or via CSV?)
   $collection_pid = variable_get('bc_islandora_newspaper_pid', 'islandora:74');
 
   $xml = _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short);
 
-  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', '1');
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'dateIssued', $date);
@@ -171,7 +171,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
       $id_short = 'BC12-03';
       $id_long = 'BC12-03_' . $date_short . '-' . $page_number;
       $file_name = $file_path . '/' . $data[2];
-      $content_model_pid = 'islandora:newspaperPageCModel';
+      $content_model_type = 'islandora:newspaperPageCModel';
       $genre = 'newspaper';
       $img_mime = 'image/tiff';
       break;
@@ -188,13 +188,13 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
       $id_short = 'BC12-01';
       $id_long = 'BC12-01_' . $data[3] . '_' . str_pad($page_number, 3, '0', STR_PAD_LEFT);
       $file_name = $file_path;
-      $content_model_pid = 'islandora:pageCModel';
+      $content_model_type = 'islandora:pageCModel';
       $genre = 'yearbook';
       $img_mime = 'image/jp2';
       break;
 
     case 'pub':
-      $content_model_pid = 'islandora:pageCModel';
+      $content_model_type = 'islandora:pageCModel';
       $page_number = $data['page_number'];
       $img_mime = 'image/tiff';
       $file_name = $file_path;
@@ -213,12 +213,21 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
       break;
 
     case 'ms':
+      $content_model_type = 'islandora:manuscriptPageCModel';
       $page_number = $data['page_number'];
       $label = $data['title'];
       $file_name = $file_path;
-      $content_model_pid = 'islandora:manuscriptPageCModel';
       $xml = $data['xml'];
       $img_mime = 'image/tiff';
+      break;
+
+    case 'diary':
+      $content_model_type = 'islandora:pageCModel';
+      $page_number = $data['page_number'];
+      $img_mime = 'image/tiff';
+      $label = $data['title'];
+      $file_name = $file_path;
+      $xml = $data['xml'];
       break;
   }
 
@@ -239,6 +248,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
       $tn_datastream->logMessage = "TN derivative created by ImageMagick with command - $command || SUCCESS";
       $book_item->ingestDatastream($tn_datastream);
       unlink($tmp_file);
+      drush_log('Updated parent object TN.', 'ok');
     }
   }
 
@@ -247,9 +257,10 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   // Generate MODS here for book and newspaper pages.
   if (!isset($xml)) {
     $xml = _bc_islandora_drush_page_mods($type, $title, $genre, $label, $id_short, $id_long, $date_created, $date_issued);
+    drush_log($xml, 'ok');
   }
 
-  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
@@ -280,14 +291,17 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   $mods_datastream = $object->constructDatastream('MODS');
 
+  drush_log($xml, 'ok');
   $mods_datastream->content = $xml;
   $mods_datastream->mimetype = 'text/xml';
   $mods_datastream->label = 'MODS record';
   $mods_datastream->checksum = TRUE;
   $mods_datastream->checksumType = 'MD5';
-  $mods_datastream->logMessage = 'MODS datastream created using Newspapers batch ingest script || SUCCESS';
+  $mods_datastream->logMessage = 'MODS datastream created using batch ingest script || SUCCESS';
 
   $object->ingestDatastream($mods_datastream);
+
+  drush_log($file_name, 'ok');
 
   $image_datastream = $object->constructDatastream('OBJ');
   $image_datastream->setContentFromFile($file_name, FALSE);
@@ -297,7 +311,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   $image_datastream->mimetype = $img_mime;
   $image_datastream->checksum = TRUE;
   $image_datastream->checksumType = 'MD5';
-  $image_datastream->logMessage = 'OBJ datastream created using Newspapers batch ingest script || SUCCESS';
+  $image_datastream->logMessage = 'OBJ datastream created using batch ingest script || SUCCESS';
 
   $object->ingestDatastream($image_datastream);
 
@@ -312,7 +326,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
     $object->ingestDatastream($ocr_datastream);
   }
-
+  drush_log("Trying to create page object.\n", 'ok');
   try {
     $object->state = 'A';
     $ingest = $connection->repository->ingestObject($object);
@@ -323,10 +337,10 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   }
 
   if ($ingest == TRUE) {
-    drush_log(dt("Page object @pid created successfully\n", array('@pid' => $pid)), 'success');
+    drush_log(dt("Page object @pid created successfully\n", array('@pid' => $object->id)), 'success');
   }
   else {
-    drush_log(dt("There was an error creating the page object!\n"), 'error');
+    drush_log(dt("There was an error creating the page object at @pid.\n", array('@pid' => $object->id)), 'error');
   }
 
   // Make sure destructors are called as this script can run for a long time.
@@ -374,7 +388,7 @@ function create_book_object($pid, $data) {
 
   $dsid = 'MODS';
 
-  $content_model_pid = 'islandora:bookCModel';
+  $content_model_type = 'islandora:bookCModel';
 
   // If we didn't get an explicit parent collection pid in $data, assume the
   // default book collection pid.
@@ -394,7 +408,7 @@ function create_book_object($pid, $data) {
 
     $xml = _bc_islandora_drush_book_mods($title, $date, $extent, $description, $id_date);
 
-    $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
+    $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
     $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
     $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', '1');
     $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'dateIssued', $date);
@@ -405,7 +419,7 @@ function create_book_object($pid, $data) {
     $xml = $data['xml'];
     $date = $data['date'];
     $title = $data['title'];
-    $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
+    $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
     $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
     $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
   }
@@ -518,8 +532,7 @@ function create_pub_object($pid, $data) {
 
   $dsid = 'MODS';
 
-  // $content_model_pid = 'islandora:collectionCModel';
-  $content_model_pid = $data['cm_pid'];
+  $content_model_type = $data['cm_pid'];
   $collection_pid = $data['collection_pid'];
 
   $xml = $data['xml'];
@@ -540,7 +553,7 @@ function create_pub_object($pid, $data) {
 
   $object->label = $data['title'];
 
-  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_pid);
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
@@ -573,10 +586,10 @@ function create_pub_object($pid, $data) {
   }
 
   if ($ingest == TRUE) {
-    drush_log(dt("Publication collection object @pid created successfully\n", array('@pid' => $pid)), 'success');
+    drush_log(dt("@type object @pid created successfully\n", array('@type' => $content_model_type, '@pid' => $pid)), 'success');
   }
   else {
-    drush_log(dt("There was an error creating the book object!\n", 'warning'));
+    drush_log(dt("Failed to create @type object @pid\n", array('@type' => $content_model_type, '@pid' => $pid)), 'warning');
   }
   $return = $object->id;
   unset($object);

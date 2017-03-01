@@ -295,18 +295,18 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
           $ms_data['topic_uri'] = $data[21];
         }
 
-        $ms_pid = 'bcrw';
+        $manuscript_ns = 'bcrw';
 
         // Create a new pub for all files, using next available INT in namespace.
-        if (!islandora_object_load($ms_pid)) {
+        if (!islandora_object_load($manuscript_ns)) {
           drush_log("Creating publication object for: " . $ms_data['id'], 'ok');
           $ms_data['collection_pid'] = variable_get('bc_islandora_manuscripts_pid', 'islandora:manuscriptCollection');
           $ms_data['cm_pid'] = 'islandora:manuscriptCModel';
           $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
-          $ms_parent_pid = create_pub_object($ms_pid, $ms_data);
+          $ms_parent_pid = create_pub_object($manuscript_ns, $ms_data);
         }
         else {
-          drush_log(dt('Object exists: @ms_pid', array('@ms_pid' => $ms_pid)), 'ok');
+          drush_log(dt('Object exists: @manuscript_ns', array('@manuscript_ns' => $manuscript_ns)), 'ok');
         }
 
         foreach (scandir($ms_data_dir) as $ms_file) {
@@ -315,12 +315,12 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
             drush_log("Creating page object for: " . $ms_file, 'ok');
             $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
             $page_number = preg_replace('/^0+/', '', $page_padded);
-            $page_pid = $ms_pid . '-' . $page_number;
+            $page_pid = $manuscript_ns . '-' . $page_number;
             $filepath = $ms_data_dir . '/' . $ms_file;
             $ms_data['id'] = $data[0] . '_' . $page_padded;
             $ms_data['page_number'] = $page_number;
             $ms_data['title'] = $data[1] . ', page ' . $page_number;
-            $ms_data['cm_pid'] = $ms_pid;
+            $ms_data['cm_pid'] = $manuscript_ns;
             $ms_data['type'] = 'page';
             $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
 
@@ -331,7 +331,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
             // TODO this is redundant now. Find another way to check if page
             // exists?
             if (!islandora_object_load($page_pid)) {
-              create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_parent_pid, 'bcrw', 'ms');
+              create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_parent_pid, $manuscript_ns, 'ms');
             }
             else {
               drush_log(dt('Object exists: @page_pid', array('@page_pid' => $page_pid)), 'ok');
@@ -347,25 +347,28 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
 }
 
 /**
- * Ingests diaries.
+ * BC15: Alumnae Scrapbooks ingest method.
  *
- * This ingest system is annoying but slowly becoming more robust after manus,
- * and now diaries.
+ * @see https://archives.barnard.edu/finding-materials/collections-list#Record%20Group%2015:%20Alumnae%20Scrapbooks
  *
- * Diaries use Islandora Book Model and Page Models.
+ * NB: This ingest system is slowly becoming more robust after
+ * manuscripts and now diaries. Still a lot left to do, slow and steady.
  *
- * Barnard PID Examples:
- * BC15-12 (Diary of Stella Bloch...)
- * * diary collection: BC15-12:0 (The collection will be at 0.)
- * * book level - BC15-12:1
- * * page level - BC15-12:2,...,n
+ * Models in use:
+ * Diaries use book and page objects (iarbook/page obj models).
+ * Scrapbooks are compound objects (compound object model).
+ *
+ * Barnard College PID Structuring:
+ * BC15:AlumnaeScrapbooks (parent collection).
+ * - BC15-{alumna's record group ID}:0 (alumna's parent collection).
+ * -- BC15-{alumna's record group ID}:{1..n} (variety of objects).
  *
  * Let's look at our folder structure, and what this script expects.
  * ./diaries_metadata.csv
  * ./BC15-12_diaryxyz/pages[0-999].tiff
  * ./BC15-12_diaryxyz/pages[0-999].txt (*optional OCR stream to ingest)
  *
- * @file diaries_metadata.csv see: https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA/edit#gid=195535030
+ * @see https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA
  */
 function _bc_islandora_drush_ingest_diaries($md_file, $options) {
   // Return early if md_file is not found.
@@ -374,31 +377,39 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
     return;
   }
 
+  // This is the Barnard Acrhives Record Group for Alumnae Scrapbooks.
+  $namespace_default = 'BC15';
+  $scrapbook_collection_default = 'BC15:0';
+
   $id_option = $options['identifier'];
 
   $md_fh = fopen($md_file, 'r');
   while (($data = fgetcsv($md_fh)) !== FALSE) {
     $csv_row = array();
     $csv_row['id'] = $data[0];
-    $filename_array = explode('_', $data[0]);
-    $ns = $filename_array[0];
-    $id = $filename_array[1];
+
+    $filename_array = explode('_', $csv_row['id']);
+    $alumna_namespace = $filename_array[0];
+    $diary_id = $filename_array[1];
+
     // Skip this row if we got an id option and this id doesn't match.
-    if ($id_option && $id_option != $ns) {
+    if ($id_option && $id_option != $alumna_namespace) {
       drush_log("Skipped due to ID mismatch: " . $csv_row['id'], 'error');
       continue;
     }
-    $csv_directory = dirname($md_file) . '/' . $id;
+
+    // Object Creation and Ingest.
+    $csv_directory = dirname($md_file) . '/' . $diary_id;
     if (is_dir($csv_directory)) {
-      $csv_row['title'] = $data[1];
-      $ms_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
+
       // If we found an XML file that matches the naming convention, assume
       // it contains the MODS data we want.
+      $ms_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
       if (file_exists($ms_mods_file)) {
         drush_log("Found XML mods file for: " . $csv_row['id'], 'ok');
         $csv_row['xml'] = file_get_contents($ms_mods_file);
       }
-      // Otherwise, generate MODS using the other csv fields.
+      // Otherwise, generate MODS using the csv row fields.
       else {
         drush_log("Building mods from CSV MD file for: " . $csv_row['id'], 'ok');
         $csv_row['id'] = $data[0];
@@ -441,20 +452,25 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
         $csv_row['topics'][6]['uri'] = $data[30];
       }
 
-      // Now we can create our object.
-      $book_object_pid = $ns;
+      // First check for this Alumna's parent collection in BC15:0.
+      // (e.g. BC15-12:0)
+      $alumna_parent_collection_pid = $alumna_namespace . ':0';
+      if (!islandora_object_load($alumna_parent_collection_pid)) {
+        $csv_row['title'] = $data[15] . ' Collection';
+        drush_log("Creating alumna parent collection for: " . $csv_row['title'] . " at " . $alumna_parent_collection_pid, 'ok');
+        $csv_row['collection_pid'] = variable_get('bc_islandora_scrapbooks_pid', $scrapbook_collection_default);
+        $csv_row['cm_pid'] = 'islandora:collectionCModel';
+        $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'collection');
+        $alumna_parent_pid = create_pub_object($alumna_parent_collection_pid, $csv_row);
+        $csv_row['title'] = $data[1];
+      }
+
       // Create a new pub for all files, using next available INT in namespace.
-      if (!islandora_object_load($book_object_pid)) {
-        drush_log("Creating diary (book) object for: " . $csv_row['id'], 'ok');
-        $csv_row['collection_pid'] = variable_get('bc_islandora_diaries_pid', 'islandora:bookCollection');
-        $csv_row['cm_pid'] = 'islandora:bookCModel';
-        $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'book');
-        drush_log($csv_row['xml'], 'ok');
-        // $ms_parent_pid = create_pub_object($book_object_pid, $csv_row);
-      }
-      else {
-        drush_log(dt('Object exists: @pid', array('@pid' => $book_object_pid)), 'ok');
-      }
+      drush_log("Creating diary (book) object for: " . $csv_row['id'], 'ok');
+      $csv_row['collection_pid'] = $alumna_parent_collection_pid;
+      $csv_row['cm_pid'] = 'islandora:bookCModel';
+      $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'book');
+      $parent_object = create_pub_object($alumna_namespace, $csv_row);
 
       foreach (scandir($csv_directory) as $page_proc) {
         // Create a page object for each tif file we find.
@@ -462,7 +478,7 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
           drush_log("Creating page object for: " . $page_proc, 'ok');
           $page_padded = str_replace('.tif', '', array_pop(explode('_', $page_proc)));
           $page_number = preg_replace('/^0+/', '', $page_padded);
-          $page_pid = $book_object_pid . '-' . $page_number;
+          $page_pid = $alumna_namespace;
           $filepath = $csv_directory . '/' . $page_proc;
           $csv_row['id'] = $data[0] . '_' . $page_padded;
           $csv_row['page_number'] = $page_number;
@@ -470,20 +486,13 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
           $csv_row['cm_pid'] = 'islandora:pageCModel';
           $csv_row['type'] = 'page';
           $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'page');
+          drush_log($csv_row['xml'], 'ok');
 
           // Check if a text file is present as OCR.
           $ocr_file = $csv_directory . '/' . str_replace('.tif', '.txt', $page_proc);
           $csv_row['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
 
-          // TODO this is redundant now. Find another way to check if page
-          // exists?
-          if (!islandora_object_load($page_pid)) {
-            drush_log($csv_row['xml'], 'ok');
-            // create_page_object($csv_directory . '/' . $page_proc, $csv_row, $ms_parent_pid, 'bcrw', 'ms');
-          }
-          else {
-            drush_log(dt('Object exists: @page_pid', array('@page_pid' => $page_pid)), 'ok');
-          }
+          create_page_object($filepath, $csv_row, $parent_object, $page_pid, 'diary');
         }
       }
     }

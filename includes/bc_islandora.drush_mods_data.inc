@@ -191,7 +191,7 @@ BOOK_MODS;
 }
 
 /**
- * Generates manuscript metadata.
+ * Generates Barnard Manupscript and Scrapbook MODS MD DS.
  */
 function _bc_islandora_ms_mods($ms_data) {
   if (isset($ms_data['type']) && $ms_data['type'] == 'page') {
@@ -338,11 +338,24 @@ function _bc_islandora_ms_mods($ms_data) {
  * CSV Row processor for Barnard College Diaries.
  */
 function _bc_islandora_diaries_mods($mods_data, $type) {
-  if ($type == 'page') {
+  if ($type == 'collection') {
+    return <<<COLLECTION_MODS
+  <mods xmlns="http://www.loc.gov/mods/v3" xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd">
+    <titleInfo>
+      <title>{$mods_data['related_item_title']}</title>
+    </titleInfo>
+    <abstract>{$mods_data['related_item_title']} Collection</abstract>
+    <identifier type="local">BC15.12</identifier>
+  </mods>
+COLLECTION_MODS;
+  }
+  elseif ($type == 'page') {
     $date_xml = "
   <originInfo>";
   }
-  // These mods fields are not part of our page mods, so if page, skip.
+  // This generates MODS records for an entire "scrapbook object" - i.e., a book
+  // or compound object. "Page-level" metadata is much simpler, so we only ever
+  // get here at a top level non-page object.
   else {
     $date_xml = "
   <originInfo>
@@ -395,6 +408,7 @@ function _bc_islandora_diaries_mods($mods_data, $type) {
   </recordInfo>";
   }
 
+  // The rest of the MODS parts
   // Creators - mods:name.
   $creators = $mods_data['creators'];
   $creator_xml = "";
@@ -451,7 +465,7 @@ function _bc_islandora_diaries_mods($mods_data, $type) {
   $date_xml .= "
   </originInfo>";
 
-  // Not used elsewhere.
+  // No. Because the parent collection is a member of alum scrapbooks.
   $related_item_xml = "
   <relatedItem type=\"host\" displayLabel=\"Record Group\">
     <titleInfo>
@@ -466,69 +480,52 @@ function _bc_islandora_diaries_mods($mods_data, $type) {
     <typeOfResource>mixed material</typeOfResource>
   </relatedItem>";
 
-  // Not used elsewhere.
-  $genre_xml .= "
+  $genre_xml = "
   <genre authority=\"aat\" authorityURI=\"http://vocab.getty.edu/aat\" valueURI=\"{$mods_data['genre_uri']}\">{$mods_data['genre']}</genre>";
 
-  // Not used elsewhere.
-  $identifier_xml .= "
+  $identifier_xml = "
   <identifier type=\"local\">{$mods_data['id']}</identifier>";
 
-  // Not used elsewhere.
-  $titleinfo_title_xml .= "
+  $titleinfo_title_xml = "
   <titleInfo>
     <title>{$mods_data['title']}</title>
   </titleInfo>";
 
-  // Not used elsewhere.
-  $resource_type_xml .= "
+  $resource_type_xml = "
   <typeOfResource>{$mods_data['resource_type']}</typeOfResource>";
 
-  // Build the final return mods record.
+  // Build the final return mods record. Don't really need the { }, w/e.
   $mods_xml = "
   <mods xmlns=\"http://www.loc.gov/mods/v3\" xmlns:mods=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd\">
-  $identifier_xml
-  $titleinfo_title_xml
-  $creator_xml
-  $resource_type_xml
-  $genre_xml
-  $date_xml";
-
+  {$identifier_xml}
+  {$titleinfo_title_xml}
+  {$creator_xml}
+  {$resource_type_xml}
+  {$genre_xml}
+  {$date_xml}";
   if (isset($extent_xml)) {
-    $mods_xml .= "
-  $extent_xml";
+    $mods_xml .= "\n{$extent_xml}";
   }
   if (isset($description_xml)) {
-    $mods_xml .= "
-  $description_xml";
+    $mods_xml .= "\n{$description_xml}";
   }
   if (isset($location_xml)) {
-    $mods_xml .= "
-  $location_xml";
+    $mods_xml .= "\n{$location_xml}";
   }
   if (isset($language_xml)) {
-    $mods_xml .= "
-  $language_xml";
+    $mods_xml .= "\n{$language_xml}";
   }
   if (isset($subject_xml)) {
-    $mods_xml .= "
-  $subject_xml";
+    $mods_xml .= "\n{$subject_xml}";
   }
-
-  $mods_xml .= "
-  $related_item_xml";
-
+  $mods_xml .= "\n{$related_item_xml}";
   if (isset($access_condition_xml)) {
-    $mods_xml .= "
-  $access_condition_xml";
+    $mods_xml .= "\n{$access_condition_xml}";
   }
   if (isset($record_info_xml)) {
-    $mods_xml .= "
-  $record_info_xml";
+    $mods_xml .= "\n{$record_info_xml}";
   }
-
-  $mods_xml .= "
-  \n</mods>";
+  $mods_xml .= "\n</mods>";
 
   return $mods_xml;
 }
