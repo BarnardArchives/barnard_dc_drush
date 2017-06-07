@@ -359,7 +359,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
  * Scrapbooks are compound objects (compound object model).
  *
  * Barnard College PID Structuring:
- * BC15:AlumnaeScrapbooks (parent collection).
+ * BC15:AlumnScrapbooks (parent collection).
  * - BC15-{alumna's record group ID}:0 (alumna's parent collection).
  * -- BC15-{alumna's record group ID}:{1..n} (variety of objects).
  *
@@ -377,100 +377,89 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
     return;
   }
 
-  // This is the Barnard Acrhives Record Group for Alumnae Scrapbooks.
+  // Specify the default namespace (@todo make this option) and the target
+  // parent collection (@TODO make this an option) to ingest objects into.
+  // This is the Barnard Acrhives Record Group for Alumn Diaries & Scrapbooks.
   $namespace_default = 'BC15';
-  $scrapbook_collection_default = 'BC15:0';
+  $parent_collection = 'BC15:0';
 
+  // Drush options.
   $id_option = $options['identifier'];
 
   $md_fh = fopen($md_file, 'r');
   while (($data = fgetcsv($md_fh)) !== FALSE) {
     $csv_row = array();
+
+    // Barnard maps the file name EXCLUDING path and extension in the first row.
+    // We then use that filename (ID) to determine how the object is handeled.
+    // We use part of the name to determine the parent collection and where objects
+    // are stored on the file system.
+    // EXAMPLES:
+    // BC15-12_uniqueName is from RG BC15-12 (parent collection) and is an
+    // object because it has a name. Files are located ./BC15-12_uniqueName.
+    // BC15-15 is from RG BC15-15 (parent collection) and is likely the only
+    // object in that collection. Files are located ./BC15-15.
+    // BC15-12:0 denotes a parent collection that needs to be created.
+    // (uniqueName is only for human identification.)
     $csv_row['id'] = $data[0];
 
-    $filename_array = explode('_', $csv_row['id']);
-    $alumna_namespace = $filename_array[0];
-    $diary_id = $filename_array[1];
+    $filename_array = preg_split("(:|_)", $csv_row['id']);
+    $object_namespace = $filename_array[0];
+    $object_collection_PID = $object_namespace . ':0';
+    $object_id = isset($filename_array[1]) ? $filename_array[1] : '';
 
     // Skip this row if we got an id option and this id doesn't match.
-    if ($id_option && $id_option != $alumna_namespace) {
+    if ($id_option && $id_option != $object_namespace) {
       drush_log("Skipped due to ID mismatch: " . $csv_row['id'], 'error');
       continue;
     }
 
-    // Object Creation and Ingest.
-    $csv_directory = dirname($md_file) . '/' . $diary_id;
+    // Parent collection creation and ingest. Nom Nom.
+    if ($object_id === '0') {
+      drush_log("Creating parent collection for: " . $object_namespace . " at " . $object_collection_PID, 'ok');
+
+      $csv_row = _map_csv_rows($data);
+
+      $csv_row['collection_pid'] = variable_get('bc_islandora_scrapbooks_pid', $parent_collection);
+      $csv_row['cm_pid'] = 'islandora:collectionCModel';
+      $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'collection');
+
+      create_pub_object($object_collection_PID, $csv_row);
+      continue;
+    }
+
+    // First check for this object's parent collection in BC15:0.
+    // (e.g. BC15-12:0)
+    if (!islandora_object_load($object_collection_PID)) {
+      drush_log("No parent collection for: " . $csv_row['id'], 'error');
+      continue;
+    }
+
+    // "Normal" object creation and ingest.
+    $csv_directory = dirname($md_file) . '/' . $object_id;
     if (is_dir($csv_directory)) {
 
       // If we found an XML file that matches the naming convention, assume
       // it contains the MODS data we want.
-      $ms_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
+      $xml_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
       if (file_exists($ms_mods_file)) {
         drush_log("Found XML mods file for: " . $csv_row['id'], 'ok');
-        $csv_row['xml'] = file_get_contents($ms_mods_file);
+        $csv_row['xml'] = file_get_contents($xml_mods_file);
       }
       // Otherwise, generate MODS using the csv row fields.
       else {
-        drush_log("Building mods from CSV MD file for: " . $csv_row['id'], 'ok');
-        $csv_row['id'] = $data[0];
-        $csv_row['title'] = $data[1];
-        // This can be automated by including a header row, and figuring out
-        // how many 'topics' there are, their location, etc. The mods script
-        // that fires after this CAN HANDLE multiples.
-        $csv_row['creators'][0]['name'] = $data[2];
-        $csv_row['creators'][0]['uri'] = $data[3];
-        $csv_row['resource_type'] = $data[4];
-        $csv_row['genre'] = $data[5];
-        $csv_row['genre_uri'] = $data[6];
-        $csv_row['date_exact'] = $data[7];
-        $csv_row['date_start_approx'] = $data[8];
-        $csv_row['date_end_approx'] = $data[9];
-        // NB start and end date only present if date is approx range...
-        $csv_row['date_start_exact'] = $data[10];
-        $csv_row['date_end_exact'] = $data[11];
-        $csv_row['extent'] = $data[12];
-        $csv_row['description'] = $data[13];
-        $csv_row['location'] = $data[14];
-        $csv_row['related_item_title'] = $data[15];
-        $csv_row['related_item_pid'] = $data[16];
-        // This can be automated by including a header row, and figuring out
-        // how many 'topics' there are, their location, etc. The mods script
-        // that fires after this CAN HANDLE multiples.
-        $csv_row['topics'][0]['topic'] = $data[17];
-        $csv_row['topics'][0]['uri'] = $data[18];
-        $csv_row['topics'][1]['topic'] = $data[19];
-        $csv_row['topics'][1]['uri'] = $data[20];
-        $csv_row['topics'][2]['topic'] = $data[21];
-        $csv_row['topics'][2]['uri'] = $data[22];
-        $csv_row['topics'][3]['topic'] = $data[23];
-        $csv_row['topics'][3]['uri'] = $data[24];
-        $csv_row['topics'][4]['topic'] = $data[25];
-        $csv_row['topics'][4]['uri'] = $data[26];
-        $csv_row['topics'][5]['topic'] = $data[27];
-        $csv_row['topics'][5]['uri'] = $data[28];
-        $csv_row['topics'][6]['topic'] = $data[29];
-        $csv_row['topics'][6]['uri'] = $data[30];
+        drush_log("Building MODS from CSV record for: " . $csv_row['id'], 'ok');
+        $csv_row = _map_csv_rows($data);
       }
 
-      // First check for this Alumna's parent collection in BC15:0.
-      // (e.g. BC15-12:0)
-      $alumna_parent_collection_pid = $alumna_namespace . ':0';
-      if (!islandora_object_load($alumna_parent_collection_pid)) {
-        $csv_row['title'] = $data[15] . ' Collection';
-        drush_log("Creating alumna parent collection for: " . $csv_row['title'] . " at " . $alumna_parent_collection_pid, 'ok');
-        $csv_row['collection_pid'] = variable_get('bc_islandora_scrapbooks_pid', $scrapbook_collection_default);
-        $csv_row['cm_pid'] = 'islandora:collectionCModel';
-        $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'collection');
-        $alumna_parent_pid = create_pub_object($alumna_parent_collection_pid, $csv_row);
-        $csv_row['title'] = $data[1];
-      }
-
-      // Create a new pub for all files, using next available INT in namespace.
-      drush_log("Creating diary (book) object for: " . $csv_row['id'], 'ok');
-      $csv_row['collection_pid'] = $alumna_parent_collection_pid;
+      // Create a new islandora object for all files, using next available INT in namespace.
+      drush_log("Creating object for: " . $csv_row['id'], 'ok');
+      $csv_row['collection_pid'] = $object_collection_PID;
       $csv_row['cm_pid'] = 'islandora:bookCModel';
       $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'book');
-      $parent_object = create_pub_object($alumna_namespace, $csv_row);
+      // Use $object_namespace to use next availabe INT in the namespace, else
+      // be more specific here to decalre your own PIDs.
+      $parent_object = create_pub_object($object_namespace, $csv_row);
 
       foreach (scandir($csv_directory) as $page_proc) {
         // Create a page object for each tif file we find.
@@ -478,7 +467,7 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
           drush_log("Creating page object for: " . $page_proc, 'ok');
           $page_padded = str_replace('.tif', '', array_pop(explode('_', $page_proc)));
           $page_number = preg_replace('/^0+/', '', $page_padded);
-          $page_pid = $alumna_namespace;
+          $page_pid = $object_namespace;
           $filepath = $csv_directory . '/' . $page_proc;
           $csv_row['id'] = $data[0] . '_' . $page_padded;
           $csv_row['page_number'] = $page_number;
@@ -486,7 +475,6 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
           $csv_row['cm_pid'] = 'islandora:pageCModel';
           $csv_row['type'] = 'page';
           $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'page');
-          drush_log($csv_row['xml'], 'ok');
 
           // Check if a text file is present as OCR.
           $ocr_file = $csv_directory . '/' . str_replace('.tif', '.txt', $page_proc);
@@ -497,4 +485,46 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
       }
     }
   }
+}
+
+function _map_csv_rows($data) {
+  $csv_row['id'] = $data[0];
+  $csv_row['title'] = $data[1];
+  // This can be automated by including a header row, and figuring out
+  // how many 'topics' there are, their location, etc. The mods script
+  // that fires after this CAN HANDLE multiples.
+  $csv_row['creators'][0]['name'] = $data[2];
+  $csv_row['creators'][0]['uri'] = $data[3];
+  $csv_row['resource_type'] = $data[4];
+  $csv_row['genre'] = $data[5];
+  $csv_row['genre_uri'] = $data[6];
+  $csv_row['date_exact'] = $data[7];
+  $csv_row['date_start_approx'] = $data[8];
+  $csv_row['date_end_approx'] = $data[9];
+  // NB start and end date only present if date is approx range...
+  $csv_row['date_start_exact'] = $data[10];
+  $csv_row['date_end_exact'] = $data[11];
+  $csv_row['extent'] = $data[12];
+  $csv_row['description'] = $data[13];
+  $csv_row['location'] = $data[14];
+  $csv_row['related_item_title'] = $data[15];
+  $csv_row['related_item_pid'] = $data[16];
+  // This can be automated by including a header row, and figuring out
+  // how many 'topics' there are, their location, etc. The mods script
+  // that fires after this CAN HANDLE multiples.
+  $csv_row['topics'][0]['topic'] = $data[17];
+  $csv_row['topics'][0]['uri'] = $data[18];
+  $csv_row['topics'][1]['topic'] = $data[19];
+  $csv_row['topics'][1]['uri'] = $data[20];
+  $csv_row['topics'][2]['topic'] = $data[21];
+  $csv_row['topics'][2]['uri'] = $data[22];
+  $csv_row['topics'][3]['topic'] = $data[23];
+  $csv_row['topics'][3]['uri'] = $data[24];
+  $csv_row['topics'][4]['topic'] = $data[25];
+  $csv_row['topics'][4]['uri'] = $data[26];
+  $csv_row['topics'][5]['topic'] = $data[27];
+  $csv_row['topics'][5]['uri'] = $data[28];
+  $csv_row['topics'][6]['topic'] = $data[29];
+  $csv_row['topics'][6]['uri'] = $data[30];
+  return $csv_row;
 }
