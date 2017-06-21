@@ -257,7 +257,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   // Generate MODS here for book and newspaper pages.
   if (!isset($xml)) {
     $xml = _bc_islandora_drush_page_mods($type, $title, $genre, $label, $id_short, $id_long, $date_created, $date_issued);
-    drush_log($xml, 'ok');
   }
 
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
@@ -291,7 +290,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
 
   $mods_datastream = $object->constructDatastream('MODS');
 
-  drush_log($xml, 'ok');
   $mods_datastream->content = $xml;
   $mods_datastream->mimetype = 'text/xml';
   $mods_datastream->label = 'MODS record';
@@ -300,8 +298,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   $mods_datastream->logMessage = 'MODS datastream created using batch ingest script || SUCCESS';
 
   $object->ingestDatastream($mods_datastream);
-
-  drush_log($file_name, 'ok');
 
   $image_datastream = $object->constructDatastream('OBJ');
   $image_datastream->setContentFromFile($file_name, FALSE);
@@ -323,7 +319,7 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
     $ocr_datastream->checksum = TRUE;
     $ocr_datastream->checksumType = 'MD5';
     $ocr_datastream->logMessage = 'OCR set from text file || SUCCESS';
-
+    drush_log("OCR set from text file.", 'ok');
     $object->ingestDatastream($ocr_datastream);
   }
   drush_log("Trying to create page object.\n", 'ok');
