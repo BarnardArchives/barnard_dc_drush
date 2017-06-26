@@ -149,6 +149,8 @@ function create_issue_object($pid, $data) {
  * Creates a page object.
  */
 function create_page_object($file_path, $data, $collection_pid, $page_pid, $type) {
+  module_load_include('inc', 'islandora', 'RestConnection');
+
   $connection = islandora_get_tuque_connection();
   $repository = $connection->repository;
 
@@ -593,4 +595,305 @@ function create_pub_object($pid, $data) {
   unset($dc_datastream);
 
   return $return;
+}
+
+/**
+ * Creates a simple islandora object ("base object") of a specified type.
+ *
+ * MODS, DC, and RELS are created for these objects. MODS is provided for the
+ * script to transform it to DC.
+ *
+ * @param string $pid is the exact pid for the object or namespace (to use
+ * the next available int in that namespace).
+ *
+ * @param array $data that describes the object to be created. Required array
+ * variables:
+ * 'title' is the label of the object in Fedora (i.e. the title.).
+ * 'cm_pid' is the content model type to create.
+ * 'collection_pid' is the object that this object is related to (read this sets
+ * RELS-EXT relationships).
+ * 'xml' is the FULL MODS record for the object, even if it is basic.
+ *
+ * @return string PID of the newly created object.
+ */
+function create_simple_object($pid, $data) {
+  module_load_include('inc', 'islandora', 'RestConnection');
+
+  $tuque = islandora_get_tuque_connection();
+  $connection = $tuque->connection;
+  $repository = $tuque->repository;
+
+  $dsid = 'MODS';
+
+  $content_model_type = $data['cm_pid'];
+  $collection_pid = $data['collection_pid'];
+
+  $xml = $data['xml'];
+
+  $mods_xml = new DOMDocument();
+  $mods_xml->loadXML($xml);
+
+  $transform_xsl = new DOMDocument();
+  $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
+  $transform_xsl->load($xsl_file);
+
+  $proc = new XSLTProcessor();
+  $proc->importStylesheet($transform_xsl);
+  $dc = $proc->transformToXML($mods_xml);
+
+  // $object = new NewFedoraObject($pid, $connection->repository);
+  $object = $repository->constructObject($pid);
+
+  $object->label = $data['title'];
+
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
+  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
+
+  $dc_datastream = $object->constructDatastream('DC');
+
+  $dc_datastream->content = $dc;
+  $dc_datastream->mimetype = 'text/xml';
+  $dc_datastream->label = 'Dublin Core Record for this object';
+
+  $object->ingestDatastream($dc_datastream);
+
+  $mods_datastream = $object->constructDatastream('MODS');
+
+  $mods_datastream->setContentFromString($xml);
+  $mods_datastream->mimetype = 'text/xml';
+  $mods_datastream->label = 'MODS record';
+  $mods_datastream->checksum = TRUE;
+  $mods_datastream->checksumType = 'MD5';
+  $mods_datastream->logMessage = 'MODS datastream created using Newspapers batch ingest script || SUCCESS';
+
+  $object->ingestDatastream($mods_datastream);
+
+  try {
+    $object->state = 'A';
+    $ingest = $tuque->repository->ingestObject($object);
+  }
+  catch (Exception $e) {
+    unset($object);
+    throw($e);
+  }
+
+  if ($ingest == TRUE) {
+    drush_log(dt("@type object @pid created successfully\n", array('@type' => $content_model_type, '@pid' => $pid)), 'success');
+  }
+  else {
+    drush_log(dt("Failed to create @type object @pid\n", array('@type' => $content_model_type, '@pid' => $pid)), 'warning');
+  }
+  $return = $object->id;
+  unset($object);
+  unset($mods_datastream);
+  unset($dc_datastream);
+
+  return $return;
+}
+
+/**
+ * Creates a complete islandora object of a specified type.
+ *
+ * MODS, DC, and RELS are created for these objects. MODS is provided for the
+ * script to transform it to DC.
+ *
+ * @param string $pid
+ *   The exact pid for the object or namespace (to use the next available int
+ *   in that namespace).
+ * @param array $data
+ *   Describes the object to be created. Required array variables:
+ *    'title' is the label of the object in Fedora (i.e. the title.).
+ *    'cm_pid' is the content model type to create (e.g., islandora:pageCModel).
+ *    'type' is the human readable name of cm_pid (e.g., page).
+ *    'collection_pid' is the object that this object is related to (read this
+ *     sets RELS-EXT relationships).
+ *    'xml' is the FULL MODS record for the object, even if it is basic.
+ *    'page_number' is the page number of the object.
+ *
+ * @TODO Change 'page_number' since we don't really know what type of OBJ. Make
+ * less assumptions.
+ *
+ * @return string PID
+ *    PID of the newly created object.
+ */
+function create_complete_object($pid, $data, $collection_pid, $file_path) {
+  module_load_include('inc', 'islandora', 'RestConnection');
+
+  $connection = islandora_get_tuque_connection();
+  $repository = $connection->repository;
+
+  $object = $repository->constructObject($pid);
+
+  $xml = $data['xml'];
+  $label = $data['title'];
+  $content_model_type = $data['cm_pid'];
+  $mime_type = $data['mime_type'];
+  $page_number = $data['page_number'];
+  $file_name = $file_path;
+
+  // Ingest a thumbnail of the first page to the parent object collection.
+  if ($page_number == 1) {
+    $rand = rand('100', '999');
+    $tmp_file = '/tmp/tmp_file' . $rand . '.jpg';
+    $command = 'convert -quiet -thumbnail 200x200 ' . $file_name . ' ' . $tmp_file;
+    exec($command, $exec_output, $exec_return);
+    if ($exec_return == 0) {
+      $book_item = $repository->constructObject($collection_pid);
+      $tn_datastream = $book_item->constructDatastream('TN');
+      $tn_datastream->setContentFromFile($tmp_file, FALSE);
+      $tn_datastream->label = 'Thumbnail';
+      $tn_datastream->mimetype = 'image/jpg';
+      $tn_datastream->checksum = TRUE;
+      $tn_datastream->checksumType = 'MD5';
+      $tn_datastream->logMessage = "TN derivative created by ImageMagick with command - $command || SUCCESS";
+      $book_item->ingestDatastream($tn_datastream);
+      unlink($tmp_file);
+      drush_log('Updated parent object TN.', 'ok');
+    }
+  }
+
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
+  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
+
+  $dsid = 'MODS';
+  $mods_xml = new DOMDocument();
+  $mods_xml->loadXML($xml);
+
+  $transform_xsl = new DOMDocument();
+  $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
+  $transform_xsl->load($xsl_file);
+
+  $proc = new XSLTProcessor();
+  $proc->importStylesheet($transform_xsl);
+  $dc = $proc->transformToXML($mods_xml);
+
+  $object->label = $label;
+
+  $dc_datastream = $object->constructDatastream('DC');
+
+  $dc_datastream->content = $dc;
+  $dc_datastream->mimetype = 'text/xml';
+  $dc_datastream->label = 'Dublin Core Record for this object';
+
+  $object->ingestDatastream($dc_datastream);
+
+  $mods_datastream = $object->constructDatastream('MODS');
+
+  $mods_datastream->content = $xml;
+  $mods_datastream->mimetype = 'text/xml';
+  $mods_datastream->label = 'MODS record';
+  $mods_datastream->checksum = TRUE;
+  $mods_datastream->checksumType = 'MD5';
+  $mods_datastream->logMessage = 'MODS datastream created using batch ingest script || SUCCESS';
+
+  $object->ingestDatastream($mods_datastream);
+
+  $image_datastream = $object->constructDatastream('OBJ');
+  $image_datastream->setContentFromFile($file_name, FALSE);
+  // @TODO, set OBJ label based on MIME TYPE.
+  // $image_datastream->label = 'TIFF image';
+  $image_datastream->label = $label;
+  $image_datastream->mimetype = $mime_type;
+  $image_datastream->checksum = TRUE;
+  $image_datastream->checksumType = 'MD5';
+  $image_datastream->logMessage = 'OBJ datastream created using batch ingest script || SUCCESS';
+
+  $object->ingestDatastream($image_datastream);
+
+  if (!empty($data['ocr'])) {
+    $ocr_datastream = $object->constructDatastream('OCR');
+    $ocr_datastream->setContentFromFile($data['ocr'], FALSE);
+    $ocr_datastream->label = 'OCR';
+    $ocr_datastream->mimetype = 'text/plain';
+    $ocr_datastream->checksum = TRUE;
+    $ocr_datastream->checksumType = 'MD5';
+    $ocr_datastream->logMessage = 'OCR set from text file || SUCCESS';
+    drush_log("OCR set from text file.", 'ok');
+    $object->ingestDatastream($ocr_datastream);
+  }
+
+  drush_log("Trying to create page object.\n", 'ok');
+
+  try {
+    $object->state = 'A';
+    $ingest = $connection->repository->ingestObject($object);
+  }
+  catch (Exception $e) {
+    unset($object);
+    throw($e);
+  }
+
+  if ($ingest == TRUE) {
+    drush_log(dt("Page object @pid created successfully\n", array('@pid' => $object->id)), 'success');
+  }
+  else {
+    drush_log(dt("There was an error creating the page object at @pid.\n", array('@pid' => $object->id)), 'error');
+  }
+
+  // Make sure destructors are called as this script can run for a long time.
+  unset($object);
+  unset($image_datastream);
+  unset($mods_datastream);
+  unset($dc_datastream);
+  unset($ocr_datastream);
+
+  return $pid;
+}
+
+/**
+ * Simple CSV row mapping based on @TODO the header of each row.
+ *
+ * @param array $data
+ *    A structured CSV row.
+ * @param array $head
+ *    Column headings (NB UNUSED).
+ *
+ * @TODO header mapping.
+ */
+function _map_csv_rows($data, $head = array()) {
+  $csv_row['id'] = $data[0];
+  $csv_row['title'] = $data[1];
+  // This can be automated by including a header row, and figuring out
+  // how many 'topics' there are, their location, etc. The mods script
+  // that fires after this CAN HANDLE multiples.
+  $csv_row['creators'][0]['name'] = $data[2];
+  $csv_row['creators'][0]['uri'] = $data[3];
+  $csv_row['resource_type'] = $data[4];
+  $csv_row['genre'] = $data[5];
+  $csv_row['genre_uri'] = $data[6];
+  $csv_row['date_exact'] = $data[7];
+  $csv_row['date_start_approx'] = $data[8];
+  $csv_row['date_end_approx'] = $data[9];
+  // NB start and end date only present if date is approx range...
+  $csv_row['date_start_exact'] = $data[10];
+  $csv_row['date_end_exact'] = $data[11];
+  $csv_row['extent'] = $data[12];
+  $csv_row['description'] = $data[13];
+  $csv_row['location'] = $data[14];
+  $csv_row['related_item_title'] = $data[15];
+  $csv_row['related_item_pid'] = $data[16];
+  // This can be automated by including a header row, and figuring out
+  // how many 'topics' there are, their location, etc. The mods script
+  // that fires after this CAN HANDLE multiples.
+  $csv_row['topics'][0]['topic'] = $data[17];
+  $csv_row['topics'][0]['uri'] = $data[18];
+  $csv_row['topics'][1]['topic'] = $data[19];
+  $csv_row['topics'][1]['uri'] = $data[20];
+  $csv_row['topics'][2]['topic'] = $data[21];
+  $csv_row['topics'][2]['uri'] = $data[22];
+  $csv_row['topics'][3]['topic'] = $data[23];
+  $csv_row['topics'][3]['uri'] = $data[24];
+  $csv_row['topics'][4]['topic'] = $data[25];
+  $csv_row['topics'][4]['uri'] = $data[26];
+  $csv_row['topics'][5]['topic'] = $data[27];
+  $csv_row['topics'][5]['uri'] = $data[28];
+  $csv_row['topics'][6]['topic'] = $data[29];
+  $csv_row['topics'][6]['uri'] = $data[30];
+  return $csv_row;
 }
