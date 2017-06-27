@@ -611,6 +611,8 @@ function create_pub_object($pid, $data) {
  *    'title' is the LABEL of the object in Fedora (i.e. the title.).
  *    'content_model' is the content model type to create.
  *    'xml' is the FULL MODS record for the object, even if it is basic.
+ * @param string $collection_pid
+ *   Parent object this object is member of (this sets RELS-EXT relationships)
  *
  * @return string PID
  *   PID of the newly created object.
@@ -627,12 +629,14 @@ function create_simple_object($pid, $data, $collection_pid) {
 
   $content_model_type = $data['content_model'];
 
-  $mime_type = $data['mime_type'];
-  $mime_label = $data['type'];
-
   $xml = $data['xml'];
   $mods_xml = new DOMDocument();
   $mods_xml->loadXML($xml);
+
+  // Begin FEDORA and ISLANDORA relationships.
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
+  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
   // Begin DC Transform:
   $transform_xsl = new DOMDocument();
@@ -661,14 +665,9 @@ function create_simple_object($pid, $data, $collection_pid) {
 
   $object->ingestDatastream($mods_datastream);
 
-  // Begin FEDORA and ISLANDORA relationships.
-  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
-  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
-
   try {
     $object->state = 'A';
-    $ingest = $tuque->repository->ingestObject($object);
+    $ingest = $repository->ingestObject($object);
   }
   catch (Exception $e) {
     unset($object);
@@ -709,8 +708,8 @@ function create_simple_object($pid, $data, $collection_pid) {
  *    'title' is the label of the object in Fedora (i.e. the title.).
  *    'content_model' is the content model type to create.
  *    'xml' is the FULL MODS record for the object, even if it is basic.
- *    'mimetype' is the mime type of the archival object.
- *    'type' is the human readable LABEL of mimetype (e.g. TIFF Image).
+ *    'mime_type' is the mime type of the archival object.
+ *    'mime_label' is the human readable LABEL of mimetype (e.g. TIFF Image).
  *    'page_number' is the page number of the object.
  * @param string $collection_pid
  *   Parent object this object is member of (this sets RELS-EXT relationships)
@@ -734,10 +733,8 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
   $object->label = $data['title'];
 
   $content_model_type = $data['content_model'];
-
   $mime_type = $data['mime_type'];
-  $mime_label = $data['type'];
-
+  $mime_label = $data['mime_label'];
   $page_number = $data['page_number'];
   $file_name = $file_path;
 
@@ -762,7 +759,17 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     }
   }
 
+  // Begin FEDORA and ISLANDORA relationships.
+  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
+  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
+
   $xml = $data['xml'];
+
   $mods_xml = new DOMDocument();
   $mods_xml->loadXML($xml);
 
@@ -781,6 +788,7 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
   $dc_datastream->label = 'Dublin Core Record for this object';
 
   $object->ingestDatastream($dc_datastream);
+
   // Begin Mods:
   $mods_datastream = $object->constructDatastream('MODS');
   $mods_datastream->content = $xml;
@@ -816,21 +824,12 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     $object->ingestDatastream($ocr_datastream);
   }
 
-  // Begin FEDORA and ISLANDORA relationships.
-  $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
-  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
-
   // @todo change this.
   drush_log("Trying to inggggggggest.\n", 'ok');
 
   try {
     $object->state = 'A';
-    $ingest = $connection->repository->ingestObject($object);
+    $ingest = $repository->ingestObject($object);
   }
   catch (Exception $e) {
     unset($object);

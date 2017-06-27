@@ -332,16 +332,14 @@ function _bc_islandora_ms_mods($ms_data) {
 }
 
 /**
- * Generates DIARIES meta data.
+ * Generates Scrapbook MODS records: RG: BC15.
  *
+ * CSV Row processor for Barnard College Alumnae Scrapbooks.
  * The formatting of this section is purposeful.
- * CSV Row processor for Barnard College Diaries.
- *
  * Pay attention to spacing in the creation of variables.
  *
  * We use single quote literals for static content, and heredoc strings for
- * dynamic content. We also use heredoc to gen the final MODs string. This
- * is here to explain the logic of why things are a mix of heredoc and lits.
+ * dynamic content. We also use heredoc to gen the final MODs string.
  */
 function _bc_islandora_diaries_mods($mods_data, $type) {
   $identifier_xml = <<<PID
