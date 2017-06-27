@@ -429,13 +429,14 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
       drush_log(dt("Creating parent collection for @object at PID: @parent_collection.",
         array('@object' => $object_namespace, '@parent_collection' => $object_collection_PID)), 'ok');
 
+      // Prepare CSV rows to be sent to create_simple_object for the parent
+      // collection.
       $csv_row = _map_csv_rows($data);
-
-      $csv_row['collection_pid'] = variable_get('bc_islandora_scrapbooks_pid', $parent_collection);
-      $csv_row['cm_pid'] = 'islandora:collectionCModel';
+      $csv_row['content_model'] = 'islandora:collectionCModel';
       $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'collection');
+      $parent = variable_get('bc_islandora_scrapbooks_pid', $parent_collection)
 
-      create_simple_object($object_collection_PID, $csv_row);
+      create_simple_object($object_collection_PID, $csv_row, $parent);
       continue;
     }
 
@@ -453,8 +454,7 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
 
       // Create a new book object using the next available int.
       drush_log("Creating book object for: " . $csv_row['id'], 'ok');
-      $csv_row['collection_pid'] = $object_collection_PID;
-      $csv_row['cm_pid'] = 'islandora:bookCModel';
+      $csv_row['content_model'] = 'islandora:bookCModel';
       // If we find an XML file that matches the naming convention, assume
       // it contains the MODS data we want.
       $xml_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
@@ -470,7 +470,7 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
       }
       // Use $object_namespace to use next availabe INT in the namespace, else
       // be more specific here to decalre your own PIDs.
-      $parent_object = create_simple_object($object_namespace, $csv_row);
+      $parent_object = create_simple_object($object_namespace, $csv_row, $object_collection_PID);
 
       foreach (scandir($csv_directory) as $page_proc) {
         // Create a page object for each tif file we find.
@@ -485,10 +485,11 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
           $csv_row['id'] = $data[0] . '_' . $page_padded;
           $csv_row['page_number'] = $page_number;
           $csv_row['title'] = $data[1] . ', page ' . $page_number;
-          $csv_row['cm_pid'] = 'islandora:pageCModel';
+          $csv_row['content_model'] = 'islandora:pageCModel';
           $csv_row['type'] = 'page';
           $csv_row['mime_type'] = 'image/tiff';
           $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'page');
+          $csv_row['RELS']
 
           // Check if a text file is present as OCR.
           $ocr_file = $csv_directory . '/' . str_replace('.tif', '.txt', $page_proc);
