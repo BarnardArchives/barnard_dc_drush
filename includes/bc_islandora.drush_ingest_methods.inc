@@ -349,26 +349,32 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
 /**
  * BC15: Alumn Scrapbooks ingest method.
  *
- * @see https://archives.barnard.edu/finding-materials/collections-list#Record%20Group%2015:%20Alumnae%20Scrapbooks
+ * @see https://archives.barnard.edu/finding-materials/collections-list#Record%20Group%2015:%20Alumnae%20Scrapbooks'
+ * @see https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA
  *
- * NB: This ingest system is slowly becoming more robust after
- * manuscripts and now diaries. Still a lot left to do, slow and steady.
+ * @author Barnard Archives <[<archives@barnard.edu>]>
+ *
+ * @todo: This ingest system is slowly becoming more robust after
+ * manuscripts and now diaries.
  *
  * Models in use:
- * Diaries use book and page objects (iarbook/page obj models).
- * Scrapbooks are compound objects (compound object model).
+ * Diaries use book and page objects (book/page models).
+ * Scrapbooks are compound objects of books and page models (compound model).
  *
  * Barnard College PID Structuring:
- * BC15:AlumnScrapbooks (parent collection).
- * - BC15-{alumna's record group ID}:0 (alumna's parent collection).
- * -- BC15-{alumna's record group ID}:{1..n} (variety of objects).
+ * /BC15:0, label: Alumna Scrapbook Collection [collection]
+ * |- BC15-{record group ID}:0, label: {Alumna} Parent Collection. [collection]
+ * |--BC15-{record group ID}:[0-9]{n}, label: set by the object itself [objs]
  *
  * Let's look at our folder structure, and what this script expects.
  * ./diaries_metadata.csv
- * ./BC15-12_diaryxyz/pages[0-999].tiff
- * ./BC15-12_diaryxyz/pages[0-999].txt (*optional OCR stream to ingest)
- *
- * @see https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA
+ * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.tiff
+ * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.txt*
+ * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION_ID_[0-9]{3}.tiff
+ * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION_ID_[0-9]{3}.txt*
+ *  where [0-9]{3} is the padded page number, i.e.: 000, 001, 002...998, 999.
+ *  (note: don't use page number 0. 001 is ALWAYS the cover on a RL boook.)
+ *  *optional OCR stream to ingest
  */
 function _bc_islandora_drush_ingest_diaries($md_file, $options) {
   // Return early if md_file is not found.
@@ -377,9 +383,8 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
     return;
   }
 
-  // Specify the default namespace (@TODO make this option) and the target
-  // parent collection (@TODO make this an option) to ingest objects into.
-  // This is the Barnard Acrhives Record Group for Alumn Diaries & Scrapbooks.
+  // Specify the default namespace and the target parent collection.
+  // This is the Barnard Acrhives Record Group for Alumnae Scrapbooks.
   $namespace_default = 'BC15';
   $parent_collection = 'BC15:0';
 
@@ -393,8 +398,8 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
 
     // Barnard maps the file name EXCLUDING path and extension in the first row.
     // We then use that filename (ID) to determine how the object is handeled.
-    // We use part of the name to determine the parent collection and where objects
-    // are stored on the file system.
+    // We use part of the name to determine the parent collection and where
+    // objects are stored on the file system.
     // EXAMPLES:
     // BC15-12_uniqueName is from RG BC15-12 (parent collection) and is an
     // object because it has a name. Files are located ./BC15-12_uniqueName.
@@ -404,10 +409,14 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
     // (uniqueName is only for human identification.)
     $csv_row['id'] = $data[0];
 
-    $filename_array = preg_split("(:|_)", $csv_row['id']);
-    $object_namespace = $filename_array[0];
+    $filepath = preg_split("(:|_)", $csv_row['id']);
+    // The Object's NS will always be the first part of this array.
+    $object_namespace = $filepath[0];
+    // The Alumna Parent Collection.
     $object_collection_PID = $object_namespace . ':0';
-    $object_id = isset($filename_array[1]) ? $filename_array[1] : '';
+    // The filepath for the current objects is set here. Any path that contained
+    // a colon flags the creation of a COLLECTION without a real filepath.
+    $object_id = isset($filepath[1]) ? $filepath[1] : '';
 
     // Skip this row if we got an id option and this id doesn't match.
     if ($id_option && $id_option != $object_namespace) {
