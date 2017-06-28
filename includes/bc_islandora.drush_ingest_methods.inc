@@ -103,61 +103,66 @@ function _bc_islandora_drush_ingest_diaries($md_file, $options) {
     }
 
     // First check for this object's parent collection in BC15:0.
-    // (e.g. BC15-12:0)
     if (!islandora_object_load($object_collection_PID)) {
       drush_log(dt("Missing parent collection: @parent_collection for: @object. A collection must be included in your ingest. Skipping @object...",
         array('@object' => $csv_row['id'], '@parent_collection' => $object_collection_PID)), 'error');
       continue;
     }
 
-    // "Normal" object creation and ingest.
-    $csv_directory = dirname($md_file) . '/' . $object_id;
-    if (is_dir($csv_directory)) {
-      // Create a new book object using the next available int.
-      drush_log("Creating book object for: " . $csv_row['id'], 'ok');
+    // Book and page object creation. We also set 'COMPOUND OBJ' if we find
+    // inclusions (i.e. books within books.)
+    $book_path = dirname($md_file) . '/' . $object_id;
+    if (!is_dir($book_path)) {
+      drush_log(dt("Could not find @object to ingest at: @path", array('@path' => $book_path, '@object' => $object_id)), 'error');
+      // This signals failure, return and halt execution.
+      return;
+    }
 
-      // If we find an XML file that matches the naming convention, assume
-      // it contains the MODS data we want.
-      $xml_mods_file = $csv_directory . '/' . $csv_row['id'] . '.xml';
-      if (file_exists($xml_mods_file)) {
-        drush_log("Found XML mods file for: " . $csv_row['id'], 'ok');
-        $csv_row['xml'] = file_get_contents($xml_mods_file);
-      }
-      // Otherwise, generate MODS using the csv row fields.
-      else {
-        drush_log("Building MODS from CSV record for: " . $csv_row['id'], 'ok');
-        $csv_row = _map_rg15_csv_rows($data);
-        $csv_row['content_model'] = 'islandora:bookCModel';
-        $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'book');
-      }
-      // Use $object_namespace to use next availabe INT in the namespace, else
-      // be more specific here to decalre your own PIDs.
-      $parent_object = create_simple_object($object_namespace, $csv_row, $object_collection_PID);
+    // Create a new book object using the next available int.
+    drush_log("Creating book object for: " . $csv_row['id'], 'ok');
 
-      foreach (scandir($csv_directory) as $page_proc) {
-        // Create a page object for each tif file we find.
-        if (preg_match('/\.tif$/', $page_proc)) {
-          drush_log("Creating a page object for: " . $page_proc, 'ok');
-          $page_padded = str_replace('.tif', '', array_pop(explode('_', $page_proc)));
-          $page_number = preg_replace('/^0+/', '', $page_padded);
-          // The path to our TIFF.
-          $filepath = $csv_directory . '/' . $page_proc;
-          $csv_row['id'] = $data[0] . '_' . $page_padded;
-          $csv_row['page_number'] = $page_number;
-          $csv_row['title'] = $data[1] . ', page ' . $page_number;
-          $csv_row['content_model'] = 'islandora:pageCModel';
-          $csv_row['mime_label'] = 'TIFF Image';
-          $csv_row['mime_type'] = 'image/tiff';
-          $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'page');
+    // Anticipated path to the possible MODS xml for this book.
+    $xml_mods_file = $book_path . '/' . $csv_row['id'] . '.xml';
+    // If we find that file set it as XML, otherwise build mods.
+    if (file_exists($xml_mods_file)) {
+      drush_log("Found XML mods file for: " . $csv_row['id'], 'ok');
+      $csv_row['xml'] = file_get_contents($xml_mods_file);
+    }
+    else {
+      drush_log("Building MODS from CSV record for: " . $csv_row['id'], 'ok');
+      $csv_row = _map_rg15_csv_rows($data);
+      $csv_row['content_model'] = 'islandora:bookCModel';
+      $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'book');
+    }
 
-          // Check if a text file is present as OCR.
-          $ocr_file = $csv_directory . '/' . str_replace('.tif', '.txt', $page_proc);
-          $csv_row['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+    // Using $object_namespace to grab next availabe INT in the namespace.
+    $parent_object = create_simple_object($object_namespace, $csv_row, $object_collection_PID);
 
-          // Use $object_namespace to use next availabe INT in the namespace,
-          // else be more specific here to decalre your own PIDs.
-          create_complete_object($object_namespace, $csv_row, $parent_object, $filepath);
-        }
+    // Walk the book's directory and start creating objects from each.
+    foreach (scandir($book_path) as $page_proc) {
+      // Create a page object for each tif file we find.
+      if (preg_match('/\.tif$/', $page_proc)) {
+        // Logic HERE for CMPD.
+        drush_log("Creating a page object for: " . $page_proc, 'ok');
+        $page_padded = str_replace('.tif', '', array_pop(explode('_', $page_proc)));
+        $page_number = preg_replace('/^0+/', '', $page_padded);
+        // The path to our TIFF.
+        $filepath = $book_path . '/' . $page_proc;
+        $csv_row['id'] = $data[0] . '_' . $page_padded;
+        $csv_row['page_number'] = $page_number;
+        $csv_row['title'] = $data[1] . ', page ' . $page_number;
+        $csv_row['content_model'] = 'islandora:pageCModel';
+        $csv_row['mime_label'] = 'TIFF Image';
+        $csv_row['mime_type'] = 'image/tiff';
+        $csv_row['xml'] = _bc_islandora_diaries_mods($csv_row, 'page');
+
+        // Check if a text file is present as OCR.
+        $ocr_file = $book_path . '/' . str_replace('.tif', '.txt', $page_proc);
+        $csv_row['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+
+        // Use $object_namespace to use next availabe INT in the namespace,
+        // else be more specific here to decalre your own PIDs.
+        create_complete_object($object_namespace, $csv_row, $parent_object, $filepath);
       }
     }
   }

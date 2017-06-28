@@ -51,6 +51,16 @@ function create_simple_object($pid, $data, $collection_pid) {
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
+  if ($content_model_type === "islandora:collectionCModel") {
+    // Begin basic COLLECTION_POLICY:
+    $c_policy = $object->constructDatastream('COLLECTION_POLICY');
+    $c_policy->label = 'Collection Policy';
+    $c_policy->mimetype = 'text/xml';
+    $c_policy->setContentFromFile(DRUPAL_ROOT . '/sites/all/drush/xml/cpolicy.xml', FALSE);
+
+    $object->ingestDatastream($c_policy);
+  }
+
   // Begin DC Transform:
   $transform_xsl = new DOMDocument();
   $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
@@ -61,17 +71,17 @@ function create_simple_object($pid, $data, $collection_pid) {
 
   // Begin DC:
   $dc_datastream = $object->constructDatastream('DC');
-  $dc_datastream->content = $dc;
-  $dc_datastream->mimetype = 'text/xml';
   $dc_datastream->label = 'Dublin Core Record for this object';
+  $dc_datastream->mimetype = 'text/xml';
+  $dc_datastream->content = $dc;
 
   $object->ingestDatastream($dc_datastream);
 
   // Begin Mods:
   $mods_datastream = $object->constructDatastream('MODS');
-  $mods_datastream->setContentFromString($xml);
-  $mods_datastream->mimetype = 'text/xml';
   $mods_datastream->label = 'MODS record';
+  $mods_datastream->mimetype = 'text/xml';
+  $mods_datastream->setContentFromString($xml);
   $mods_datastream->checksum = TRUE;
   $mods_datastream->checksumType = 'MD5';
   $mods_datastream->logMessage = 'MODS datastream set from string. || SUCCESS';
@@ -172,6 +182,11 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     }
   }
 
+  $xml = $data['xml'];
+
+  $mods_xml = new DOMDocument();
+  $mods_xml->loadXML($xml);
+
   // Begin FEDORA and ISLANDORA relationships.
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
@@ -180,11 +195,6 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
-
-  $xml = $data['xml'];
-
-  $mods_xml = new DOMDocument();
-  $mods_xml->loadXML($xml);
 
   // Begin DC Transform:
   $transform_xsl = new DOMDocument();
@@ -196,20 +206,20 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
 
   // Begin DC:
   $dc_datastream = $object->constructDatastream('DC');
-  $dc_datastream->content = $dc;
-  $dc_datastream->mimetype = 'text/xml';
   $dc_datastream->label = 'Dublin Core Record for this object';
+  $dc_datastream->mimetype = 'text/xml';
+  $dc_datastream->content = $dc;
 
   $object->ingestDatastream($dc_datastream);
 
   // Begin Mods:
   $mods_datastream = $object->constructDatastream('MODS');
-  $mods_datastream->content = $xml;
-  $mods_datastream->mimetype = 'text/xml';
   $mods_datastream->label = 'MODS record';
+  $mods_datastream->mimetype = 'text/xml';
+  $mods_datastream->setContentFromString($xml);
   $mods_datastream->checksum = TRUE;
   $mods_datastream->checksumType = 'MD5';
-  $mods_datastream->logMessage = 'MODS datastream created using batch ingest script || SUCCESS';
+  $mods_datastream->logMessage = 'MODS datastream set from string. || SUCCESS';
 
   $object->ingestDatastream($mods_datastream);
 
