@@ -243,7 +243,7 @@ function _bc_islandora_ms_mods($ms_data) {
   }
 
   // @INFO Note that the first creator variable has no number.
-  $creators = array('creator','creator1','creator2','creator3');
+  $creators = array('creator', 'creator1', 'creator2', 'creator3');
   $creator_xml = "";
   foreach ($creators as $creator) {
     if (!empty($ms_data[$creator])) {
