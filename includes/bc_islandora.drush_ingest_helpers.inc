@@ -14,7 +14,8 @@ require_once 'bc_islandora.drush_mods_data.inc';
  * Creates a simple Islandora object of specified type W/O an OBJ datastream.
  *
  * MODS, DC, and RELS are created for these objects. MODS is provided for the
- * script to transform it to DC.
+ * script to transform it to DC. If it is a collection a basic POLICY model is
+ * added.
  *
  * @param string $pid
  *   The exact pid or namespace (to use the next int in NS) of the object.
@@ -31,6 +32,13 @@ require_once 'bc_islandora.drush_mods_data.inc';
  *   PID of the newly created object.
  */
 function create_simple_object($pid, $data, $collection_pid) {
+  $required_variables = array('title', 'content_model', 'xml');
+  foreach ($required_variables as $v) {
+    if (!isset($data[$v])) {
+      drush_log(dt('Could not create @pid due to missing required variable: @missing.', array('@pid' => $pid, '@missing' => $v)), 'error');
+      return;
+    }
+  }
   module_load_include('inc', 'islandora', 'RestConnection');
 
   $connection = islandora_get_tuque_connection();
@@ -51,7 +59,7 @@ function create_simple_object($pid, $data, $collection_pid) {
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
-  if ($content_model_type === "islandora:collectionCModel") {
+  if ($content_model_type === 'islandora:collectionCModel') {
     // Begin basic COLLECTION_POLICY:
     $c_policy = $object->constructDatastream('COLLECTION_POLICY');
     $c_policy->label = 'Collection Policy';
@@ -128,11 +136,12 @@ function create_simple_object($pid, $data, $collection_pid) {
  * @param array $data
  *   Describes the object to be created.
  *   Required array variables:
- *    'title' is the label of the object in Fedora (i.e. the title.).
+ *    'title' is the label of the object in Fedora.
  *    'content_model' is the content model type to create.
  *    'xml' is the FULL MODS record for the object, even if it is basic.
  *    'mime_type' is the mime type of the archival object.
  *    'mime_label' is the human readable LABEL of mimetype (e.g. TIFF Image).
+ *   Optional array variables:
  *    'page_number' is the page number of the object.
  * @param string $collection_pid
  *   Parent object this object is member of (this sets RELS-EXT relationships)
@@ -146,6 +155,16 @@ function create_simple_object($pid, $data, $collection_pid) {
  *    PID of the newly created object.
  */
 function create_complete_object($pid, $data, $collection_pid, $file_path) {
+  $required_variables = array('title', 'content_model', 'xml', 'mime_type',
+    'mime_label',
+  );
+  foreach ($required_variables as $v) {
+    if (!isset($data[$v])) {
+      drush_log(dt('Could not create @pid due to missing required variable: @missing.', array('@pid' => $pid, '@missing' => $v)), 'error');
+      return;
+    }
+  }
+
   module_load_include('inc', 'islandora', 'RestConnection');
 
   $connection = islandora_get_tuque_connection();
@@ -416,6 +435,7 @@ function create_issue_object($pid, $data) {
 /**
  * Creates a page object.
  *
+ * Being deprecated in favor of eventual object and classing, eventually.
  */
 function create_page_object($file_path, $data, $collection_pid, $page_pid, $type) {
   module_load_include('inc', 'islandora', 'RestConnection');
@@ -489,15 +509,6 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
       $file_name = $file_path;
       $xml = $data['xml'];
       $img_mime = 'image/tiff';
-      break;
-
-    case 'diary':
-      $content_model_type = 'islandora:pageCModel';
-      $page_number = $data['page_number'];
-      $img_mime = 'image/tiff';
-      $label = $data['title'];
-      $file_name = $file_path;
-      $xml = $data['xml'];
       break;
   }
 
