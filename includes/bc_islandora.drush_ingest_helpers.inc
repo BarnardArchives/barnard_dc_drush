@@ -165,6 +165,7 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     }
   }
 
+
   module_load_include('inc', 'islandora', 'RestConnection');
 
   $connection = islandora_get_tuque_connection();

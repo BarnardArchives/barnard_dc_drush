@@ -14,26 +14,41 @@ require_once 'bc_islandora.drush_ingest_helpers.inc';
 /**
  * Record Group BC15: Alumnae Scrapbooks, ingest method.
  *
+ * Barnard maps Collection Record Group to Islandora Object Namespacing.
+ *
  * @see https://archives.barnard.edu/finding-materials/collections-list#Record%20Group%2015:%20Alumnae%20Scrapbooks'
  * @see https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA
+ * @see _map_rg15_csv_rows()
  *
  * Models in use:
  * Diaries use book and page objects (book/page models).
  * Scrapbooks are compound objects of books and page models (compound model).
  *
  * Barnard College PID Structuring:
- * /BC15:0, label: Alumnae Scrapbook Collection [collection]
- * |- BC15-{record group ID}:0, label: {Alumna} Parent Collection. [collection]
- * |--BC15-{record group ID}:[0-9]{n}, label: set by the object itself [objs]
  *
- * Let's look at our folder structure, and what this script expects.
+ * * BC15:0, label: Alumnae Scrapbook Collection [collection]
+ * * BC15-{ID}:0, label: {Alumna} Parent Collection. [collection]
+ *   (relationship: is member of BC15:0)
+ * * BC15-{ID}:[0-9]{n}, label: set by CSV initially and modified for pages,
+ *   inclusions, etc. [objects] (relationships depend: is member of BC15-{ID},
+ *   is part of, is sequence number, is member of escaped pid, etc...)
+ *
+ * Example ID patterns in our CSV:
+ * BC15-12:0 describes a parent collection that needs to be created.
+ * BC15-12_uniqueName - describes an object from record group BC15-12 and
+ * has a unique name. Files are located {metadatadir}/BC15-12_uniqueName.
+ * This is also the MODS->identifier.
+ * BC15-15 - describes an object from record group BC15-15 and likely is a
+ * solitary collection member. Files are located {metadatadir}/BC15-15.
+ * This is also the MODS->identifier.
+ *
+ * A look at our anticipated folder structure:
  * ./ingest_metadata.csv (see Google Doc above, permission required.)
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.tiff
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.txt*
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION_ID_[0-9]{3}.tiff
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION_ID_[0-9]{3}.txt*
  *  where [0-9]{3} are padded page numbers, i.e.: 000, 001, 002...998, 999.
- *  (note: don't use page number 0. pg 1 is the cover on a book.)
  *  *optional OCR stream to ingest
  */
 function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
@@ -43,40 +58,26 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     return;
   }
 
-  // Specify the default name space and target parent collection in Islandora.
-  $namespace_default = 'BC15';
-  $parent_collection = 'BC15:0';
-
   // Drush options. Deprecated or under-appreciated, one or the other.
   $id_option = $options['identifier'];
+  $csv = array_map('str_getcsv', file($md_file));
 
-  // CSV processing.
-  $md_fh = fopen($md_file, 'r');
-  while (($data = fgetcsv($md_fh)) !== FALSE) {
-    $csv_row = array();
+  // The default ingest collection for all scrapbooks.
+  // Barnard maps Collection Record Group to Islandora Object Namespacing.
+  $alumnae_scrapbook_collection = 'BC15:0';
+  $obj_allowed_extensions = array('tif', 'tiff');
 
-    // Barnard maps the file name EXCLUDING path and extension in the first row.
-    // We then use that filename (ID) to determine how the object is handled.
-    // We use part of the name to determine the parent collection and where
-    // objects are stored on the file system.
-    // EXAMPLES:
-    // BC15-12_uniqueName is from RG BC15-12 (parent collection) and is an
-    // object because it has a name. Files are located ./BC15-12_uniqueName.
-    // BC15-15 is from RG BC15-15 (parent collection) and is likely the only
-    // object in that collection. Files are located ./BC15-15.
-    // BC15-12:0 denotes a parent collection that needs to be created.
-    // (uniqueName is only for human identification.)
-    $csv_row['id'] = $data[0];
+  foreach ($csv as $object_row) {
+    $object_row = _map_rg15_csv_rows($object_row);
 
-    $filepath = preg_split("(:|_)", $csv_row['id']);
-    // The Object's NS will always be the first part of this array. This is the
-    // alum's collection that will be ingested into the $parent_collection.
-    $object_namespace = $filepath[0];
-    // The Alumna Parent Collection.
+    $object_split = preg_split("(:|_)", $object_row['id']);
+
+    // This alumna namespace (e.g., BC15-12, BC15-15, etc.).
+    $object_namespace = $object_split[0];
+    // This alumna parent collection (e.g., BC15-12:0, BC15-14:0, etc.).
     $object_collection_PID = $object_namespace . ':0';
-    // The file path for the current objects is set here. Any path that contained
-    // a colon flags the creation of a COLLECTION without a real file path.
-    $object_id = isset($filepath[1]) ? $filepath[1] : '';
+    // A unique name for the obj (directory) or "0" if it is a collection.
+    $object_unique_name = isset($object_split[1]) ? $object_split[1] : '';
 
     // Skip this row if we got an id option and this id doesn't match.
     if ($id_option && $id_option != $object_namespace) {
@@ -84,86 +85,125 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
       continue;
     }
 
+    // We use this more than once.
+    $object_collection = islandora_object_load($object_collection_PID);
+
     // Alumna Collection creation and ingest.
-    if ($object_id === '0' && !islandora_object_load($object_collection_PID)) {
+    if ($object_unique_name === '0' && !isset($object_collection)) {
       drush_log(dt("Creating parent collection for @object at PID: @parent_collection.",
         array('@object' => $object_namespace, '@parent_collection' => $object_collection_PID)), 'ok');
 
-      // Prepare CSV rows to be sent to create_simple_object for the parent
-      // collection.
-      $csv_row = _map_rg15_csv_rows($data);
-      $csv_row['content_model'] = 'islandora:collectionCModel';
-      $csv_row['id'] = $object_namespace;
-      $csv_row['xml'] = _bc_islandora_rg15_mods($csv_row, 'collection');
-      $parent = variable_get('bc_islandora_scrapbooks_pid', $parent_collection);
+      // Set required parameters for create_simple_object in our array.
+      $object_row['content_model'] = 'islandora:collectionCModel';
+      $object_row['id'] = $object_namespace;
+      $object_row['xml'] = _bc_islandora_rg15_mods($object_row, 'collection');
 
-      create_simple_object($object_collection_PID, $csv_row, $parent);
+      create_simple_object($object_collection_PID, $object_row, $alumnae_scrapbook_collection);
       continue;
     }
-
-    // ALWAYS check for this object's parent collection in BC15:0.
-    if (!islandora_object_load($object_collection_PID)) {
+    // Provide this: elseif ('0' && TRUE) collection exists, overwrite?
+    elseif (!isset($object_collection)) {
+      // We can get to this point if a collection hasn't yet been defined in the
+      // CSV before objects are being ingested into it. Order matters.
       drush_log(dt("Missing parent collection: @parent_collection for: @object. A collection must be included in your ingest. Skipping @object...",
-        array('@object' => $csv_row['id'], '@parent_collection' => $object_collection_PID)), 'error');
+        array('@object' => $row['id'], '@parent_collection' => $object_collection_PID)), 'error');
+      // Here we're actually failing, but processing can continue as other
+      // objects and collections could exist.
       continue;
     }
 
-    // Book and page object creation. We also deal with inclusions, which make
-    // the book we're ingesting part
-    $is_compound = FALSE;
-    $book_path = dirname($md_file) . '/' . $object_id;
+    // Book and page object creation.
+    $book_path = dirname($md_file) . '/' . $object_unique_name;
+
     if (!is_dir($book_path)) {
-      drush_log(dt("Could not find @object to ingest at: @path", array('@path' => $book_path, '@object' => $object_id)), 'error');
-      // This signals failure, return and halt execution.
+      drush_log(dt("Could not find @object to ingest at: @path", array('@path' => $book_path, '@object' => $object_unique_name)), 'error');
+      // This signals a total failure, return and halt execution.
       return;
     }
 
+    $files = scandir($book_path);
+    foreach ($files as $file) {
+      $current_file = pathinfo("$book_path/$file");
+      sscanf($current_file['filename'], '%[^_]_%[^_]_%d_%d_%d', $ns, $bookname, $page_number, $inclusion_id, $inclusion_page_number);
+
+      $is_object = in_array(strtolower($current_file['extension']), $object_allowed_exts);
+      if (!$is_object) {
+        continue;
+      }
+
+      // Now the actual fun.
+      if ((isset($bookname) && $page_number = 1) || (isset($inclusion_id) && $inclusion_page_number = 1)) {
+        drush_log("Create a book $bookname because $page_number is 1. OR:
+          \ncreate a book INCLUSION $inclusion_id because $inclusion_page_number is 1.");
+        continue;
+      }
+      // then we handle pages just the same way, bookname stays the same,
+      // while pagenumber is set.
+
+    }
+
+    // Halt execution here.
+    return;
+
+    // Book creation.
     // Create a new book object using the next available int.
-    drush_log("Creating book object for: " . $csv_row['id'], 'ok');
+    drush_log("Creating book object for: " . $object_row['id'], 'ok');
+    $object_row['content_model'] = 'islandora:bookCModel';
 
     // Anticipated path to the possible MODS XML for this book.
-    $xml_mods_file = $book_path . '/' . $csv_row['id'] . '.xml';
+    $xml_mods_file = $book_path . '/' . $object_row['id'] . '.xml';
     // If we find that file set it as XML, otherwise build mods.
     if (file_exists($xml_mods_file)) {
-      drush_log("Found XML mods file for: " . $csv_row['id'], 'ok');
-      $csv_row['xml'] = file_get_contents($xml_mods_file);
+      drush_log("Found XML mods file for: " . $object_row['id'], 'ok');
+      $object_row['xml'] = file_get_contents($xml_mods_file);
     }
     else {
-      drush_log("Building MODS from CSV record for: " . $csv_row['id'], 'ok');
-      $csv_row = _map_rg15_csv_rows($data);
-      $csv_row['content_model'] = 'islandora:bookCModel';
-      $csv_row['xml'] = _bc_islandora_rg15_mods($csv_row, 'book');
+      drush_log("Building MODS from CSV record for: " . $object_row['id'], 'ok');
+      $object_row['xml'] = _bc_islandora_rg15_mods($csv_row, 'book');
     }
-
     // Using $object_namespace to grab next available INT in the namespace.
-    $parent_object = create_simple_object($object_namespace, $csv_row, $object_collection_PID);
+    $parent_object = create_simple_object($object_namespace, $object_row, $object_collection_PID);
+    $is_compound = FALSE;
+    // End Book Creation.
 
-    // Walk the book's directory and start creating objects from each.
-    foreach (scandir($book_path) as $page_proc) {
-      // Create a page object for each tiff file we find or a new book. (Yup.)
-      if (preg_match('/\.tif$/', $page_proc)) {
-        // Logic HERE for CMPD.
-        drush_log("Creating a page object for: " . $page_proc, 'ok');
-        $page_padded = str_replace('.tif', '', array_pop(explode('_', $page_proc)));
-        $page_number = preg_replace('/^0+/', '', $page_padded);
-        // The path to our TIFF.
-        $filepath = $book_path . '/' . $page_proc;
-        $csv_row['id'] = $data[0] . '_' . $page_padded;
-        $csv_row['page_number'] = $page_number;
-        $csv_row['title'] = $data[1] . ', page ' . $page_number;
-        $csv_row['content_model'] = 'islandora:pageCModel';
-        $csv_row['mime_label'] = 'TIFF Image';
-        $csv_row['mime_type'] = 'image/tiff';
-        $csv_row['xml'] = _bc_islandora_rg15_mods($csv_row, 'page');
 
-        // Check if a text file is present as OCR.
-        $ocr_file = $book_path . '/' . str_replace('.tif', '.txt', $page_proc);
-        $csv_row['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+    // Walk this book's directory and start creating objects from each.
+    foreach (scandir($book_path) as $page_object) {
 
-        // Use $object_namespace to use next available INT in the namespace,
-        // else be more specific here to declare your own PIDs.
-        create_complete_object($object_namespace, $csv_row, $parent_object, $filepath);
+      $current_file = pathinfo("$object_directory/$page_object");
+      $is_object = in_array(strtolower($current_file['extension']), $object_allowed_exts);
+
+      if (!$is_object) {
+        continue;
       }
+
+      $object_file_row = $object_row;
+      drush_log(dt('Creating a page for: @filename', array('@filename' => $current_file['basename'])), 'notice');
+      sscanf($current_file['filename'], '%[^_]_%[^_]_%d_%d_%d', $ns, $bookname, $page_number, $inclusion_id, $inclusion_page_number);
+      $page_padded = sprintf("%'.03d", $page_number);
+
+       if ($inclusion_id && $inclusion_page) {
+        $is_compound = TRUE;
+        // DO WORK!
+      }
+
+      // The path to our TIFF.
+      $filepath = "$book_path/$page_object";
+      $object_file_row['id'] = $object_row['id'] . '_' . $page_padded;
+      $object_file_row['page_number'] = $page_number;
+      $object_file_row['title'] = $object_row['title'] . ', page ' . $page_number;
+      $object_file_row['content_model'] = 'islandora:pageCModel';
+      $object_file_row['mime_label'] = 'TIFF Image';
+      $object_file_row['mime_type'] = 'image/tiff';
+      $object_file_row['xml'] = _bc_islandora_rg15_mods($object_row, 'page');
+
+      // Check if a text file is present as OCR.
+      $ocr_file = $book_path . '/' . str_replace('.tif', '.txt', $page_object);
+      $object_file_row['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+
+      // Use $object_namespace to use next available INT in the namespace,
+      // else be more specific here to declare your own PIDs.
+      create_complete_object($object_namespace, $object_file_row, $parent_object, $filepath);
     }
   }
 }
