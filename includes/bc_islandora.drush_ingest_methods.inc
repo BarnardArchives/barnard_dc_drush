@@ -186,10 +186,13 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         } else {
           if (!$mods_file_found) {
             drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']}", 'ok');
-            // TAMPER WITH $object_row_copy title, etc. trim and unset unncess.
+            // There are likely other variables that will need to be modified
+            // before we call MODs generation, much less ingest.
+            $object_row_copy['title'] = "${object_row['title']}, Inclusion $inclusion_id";
             $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion');
-            $inclusion_pids{$inclusion_id} = create_simple_object($object_namespace, $object_row_copy, $alumna_collection_pid);
           }
+          $inclusion_pids{$inclusion_id} = $lazy = create_simple_object($object_namespace, $object_row_copy, $alumna_collection_pid);
+          drush_log("SUCCESS! inclusion pid: $lazy", 'ok');
         }
       }
       // Book creation has ended.
@@ -199,25 +202,25 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
       $object_row_copy['content_model'] = 'islandora:pageCModel';
       $object_row_copy['mime_label'] = 'TIFF Image';
       $object_row_copy['mime_type'] = 'image/tiff';
-      $object_file_row['ocr'] = file_exists($ocr_file) ? $ocr_file : NULL;
+      $object_file_row['ocr'] = file_exists($ocr_file) ? $ocr_file : '';
       // Set the destination of this page based on the number of matches.
       // Build out the MODs records for pages - we currently do NOT look
       // for .xml files at the page level. MODs at this level are scripted.
       if ($matches == 3) {
         $dest = $current_scrapbook_pid;
-        $object_row_copy['id'] = $object_row_copy['id'] . '_' . $page_padded;
+        $object_row_copy['id'] = "${object_row_copy['id']}_$page_padded";
         $object_row_copy['page_number'] = $scrapbook_page;
-        $object_row_copy['title'] = $object_row['title'] . ', page ' . $scrapbook_page;
+        $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page";
         drush_log("Building RG15 page MODS for: ${object_row_copy['id']}", 'ok');
         $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'page');
         drush_log("Scrapbook page: $page_padded -> destination: $dest", 'ok');
       }
       else {
         $dest = $inclusion_pids[$inclusion_id];
-        $object_row_copy['id'] = $object_row_copy['id'] . '_' . $page_padded;
-        $object_row_copy['page_number'] = $scrapbook_page;
-        $object_row_copy['title'] = $object_row['title'] . ', page ' . $scrapbook_page;
-        drush_log("Building RG15 page MODS for: ${object_row_copy['id']}", 'ok');
+        $object_row_copy['id'] = "${object_row_copy['id']}_inclusion_$inclusion_id_$inclusion_page_padded";
+        $object_row_copy['page_number'] = $inclusion_page;
+        $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id, page $inclusion_page";
+        drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']}", 'ok');
         $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion_page');
         drush_log("Inclusion page: $inclusion_page_padded -> destination: $dest", 'ok');
       }

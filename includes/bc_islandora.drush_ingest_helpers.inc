@@ -43,11 +43,9 @@ function create_simple_object($pid, $data, $collection_pid) {
 
   $connection = islandora_get_tuque_connection();
   $repository = $connection->repository;
-
   $object = $repository->constructObject($pid);
 
   $object->label = $data['title'];
-
   $content_model_type = $data['content_model'];
 
   $xml = $data['xml'];
@@ -69,15 +67,13 @@ function create_simple_object($pid, $data, $collection_pid) {
     $object->ingestDatastream($c_policy);
   }
 
-  // Begin DC Transform:
+  // DC Transform:
   $transform_xsl = new DOMDocument();
   $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
   $transform_xsl->load($xsl_file);
   $proc = new XSLTProcessor();
   $proc->importStylesheet($transform_xsl);
   $dc = $proc->transformToXML($mods_xml);
-
-  // Begin DC:
   $dc_datastream = $object->constructDatastream('DC');
   $dc_datastream->label = 'Dublin Core Record for this object';
   $dc_datastream->mimetype = 'text/xml';
@@ -105,15 +101,18 @@ function create_simple_object($pid, $data, $collection_pid) {
     throw($e);
   }
 
+  $ret = '';
   if ($ingest == TRUE) {
-    drush_log(dt("@type object @pid created successfully\n", array('@type' => $content_model_type, '@pid' => $pid)), 'success');
+    $ret = $object->id;
+    drush_log(dt("object: @type destination: @dest created successfully. PID: @pid\n",
+      array('@type' => $content_model_type, '@dest' => $pid, '@pid' => $ret)), 'success');
   }
   else {
-    drush_log(dt("Failed to create @type object @pid\n", array('@type' => $content_model_type, '@pid' => $pid)), 'warning');
+    drush_log(dt("object: @type destination: @dest failed to be created.\n", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
   }
 
-  $ret = $object->id;
-
+  // Make sure destructors are called as this script can run for a long time.
+  unset($transform_xsl);
   unset($proc);
   unset($object);
   unset($mods_datastream);
@@ -216,15 +215,13 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
-  // Begin DC Transform:
+  // DC Transform:
   $transform_xsl = new DOMDocument();
   $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
   $transform_xsl->load($xsl_file);
   $proc = new XSLTProcessor();
   $proc->importStylesheet($transform_xsl);
   $dc = $proc->transformToXML($mods_xml);
-
-  // Begin DC:
   $dc_datastream = $object->constructDatastream('DC');
   $dc_datastream->label = 'Dublin Core Record for this object';
   $dc_datastream->mimetype = 'text/xml';
@@ -254,7 +251,7 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
 
   $object->ingestDatastream($object_stream);
 
-  // Check for an OCR text file.
+  // Set OCR.
   if (!empty($data['ocr'])) {
     $ocr_datastream = $object->constructDatastream('OCR');
     $ocr_datastream->setContentFromFile($data['ocr'], FALSE);
@@ -276,16 +273,18 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     throw($e);
   }
 
+  $ret = '';
   if ($ingest == TRUE) {
-    drush_log(dt("@type object @pid created successfully\n", array('@type' => $content_model_type, '@pid' => $pid)), 'success');
+    $ret = $object->id;
+    drush_log(dt("object: @type destination: @dest created successfully. PID: @pid\n",
+      array('@type' => $content_model_type, '@dest' => $pid, '@pid' => $ret)), 'success');
   }
   else {
-    drush_log(dt("Failed to create @type object @pid\n", array('@type' => $content_model_type, '@pid' => $pid)), 'error');
+    drush_log(dt("object: @type destination: @dest failed to be created.\n", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
   }
 
-  $ret = $object->id;
-
   // Make sure destructors are called as this script can run for a long time.
+  unset($transform_xsl);
   unset($proc);
   unset($object);
   unset($image_datastream);
