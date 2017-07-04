@@ -17,7 +17,7 @@
  * We use single quote literals for static content, and heredoc strings for
  * dynamic content. We also use heredoc to gen the final MODs string.
  */
-function _bc_islandora_diaries_mods($mods_data, $type) {
+function _bc_islandora_rg15_mods($mods_data, $type) {
   $identifier_xml = <<<PID
   <identifier type="local">${mods_data['id']}</identifier>
 PID;
