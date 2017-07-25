@@ -25,18 +25,23 @@ module_load_include('inc', 'islandora_large_image', 'includes/derivatives');
  *   The batch definition.
  */
 function bc_islandora_create_images_batch(AbstractObject $paged_content, array $pages) {
-  return array(
-    'operations' => array(
-      array('bc_islandora_create_images_batch_operation', array(
-          $paged_content->id, $pages)),
-    ),
+  return [
+    'operations' => [
+      [
+        'bc_islandora_create_images_batch_operation',
+        [
+          $paged_content->id,
+          $pages,
+        ],
+      ],
+    ],
     'finished' => 'islandora_paged_content_batch_finished',
-    'title' => t('Creating Images for @label ...', array('@label' => $paged_content->label)),
-    'init_message' => t('Preparing to create images for @label ...', array('@label' => $paged_content->label)),
+    'title' => t('Creating Images for @label ...', ['@label' => $paged_content->label]),
+    'init_message' => t('Preparing to create images for @label ...', ['@label' => $paged_content->label]),
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
     'file' => 'sites/all/drush/includes/bc_islandora.drush_batch.inc',
-  );
+  ];
 }
 
 /**
@@ -55,12 +60,13 @@ function bc_islandora_create_images_batch_operation(AbstractObject $paged_conten
   if ($page) {
     $page = islandora_object_load($page);
     $context['results']['successful'][] = bc_islandora_derive_image_datastreams($page);
-    if (islandora_paged_content_end_batch_operation($context, 1, array('Created images for @successful of @total pages.'))) {
+    if (islandora_paged_content_end_batch_operation($context, 1, ['Created images for @successful of @total pages.'])) {
       islandora_paged_content_update_paged_content_thumbnail($paged_content);
     }
-    $context['message'] = t('Creating images for page @page of @total ...', array(
-                            '@page' => $context['sandbox']['progress'],
-                            '@total' => $context['sandbox']['total']));
+    $context['message'] = t('Creating images for page @page of @total ...', [
+      '@page' => $context['sandbox']['progress'],
+      '@total' => $context['sandbox']['total'],
+    ]);
   }
 }
 
@@ -86,8 +92,8 @@ function bc_islandora_derive_image_datastreams(AbstractObject $object) {
  * Returns an array of names of functions for generating derivatives.
  */
 function bc_islandora_create_all_derivatives(AbstractObject $object) {
-  $ret = array();
-  foreach (array('JPG', 'TN', 'JP2') as $dsid) {
+  $ret = [];
+  foreach (['JPG', 'TN', 'JP2'] as $dsid) {
     if ($dsid != 'JPG') {
       $function = 'islandora_large_image_create_' . strtolower($dsid) . '_derivative';
     }
@@ -112,40 +118,40 @@ function bc_islandora_create_jpg_derivative(AbstractObject $object) {
 
   $base_name = str_replace(':', '-', $object->id);
   if ($force || !isset($object['JPG'])) {
-    $to_return = array(
+    $to_return = [
       'success' => FALSE,
-      'messages' => array(),
-    );
+      'messages' => [],
+    ];
 
     $uploaded_file = islandora_large_image_get_uploaded_file($object);
-    $args = array();
+    $args = [];
     $args[] = '-resize ' . escapeshellarg("600 x 800");
     $args[] = '-quality ' . escapeshellarg(variable_get('imagemagick_quality', 75));
     $derivative_file = islandora_large_image_imagemagick_convert($uploaded_file, "temporary://{$base_name}_JPG.jpg", $args);
     if ($derivative_file === FALSE) {
-      $to_return['messages'][] = array(
+      $to_return['messages'][] = [
         'message' => t('Failed to create JPG derivative.'),
         'type' => 'watchdog',
         'severity' => WATCHDOG_WARNING,
-      );
+      ];
     }
     else {
       // I modified this one line.
       $added_successfully = islandora_large_image_add_datastream($object, 'JPG', $derivative_file, 'image/jpeg', $new_label);
       if (TRUE === $added_successfully) {
-        $to_return['messages'][] = array(
+        $to_return['messages'][] = [
           'message' => t('Created JPG derivative.'),
           'type' => 'dsm',
           'severity' => 'status',
-        );
+        ];
         $to_return['success'] = TRUE;
       }
       else {
-        $to_return['messages'][] = array(
-          'message' => t('Failed to add JPG derivative to the object. Error message: @message', array('@message' => $added_successfully)),
+        $to_return['messages'][] = [
+          'message' => t('Failed to add JPG derivative to the object. Error message: @message', ['@message' => $added_successfully]),
           'type' => 'dsm',
           'severity' => 'warning',
-        );
+        ];
       }
     }
 
@@ -171,19 +177,27 @@ function bc_islandora_create_jpg_derivative(AbstractObject $object) {
  *   The batch definition.
  */
 function bc_islandora_create_pdf_batch(AbstractObject $paged_content, array $pages, array $options) {
-  return array(
-    'operations' => array(
-      array('bc_islandora_create_pdf_page_batch_operation', array(
-          $pages, $options)),
-      array('bc_islandora_create_pdf_paged_content_batch_operation', array($paged_content->id)),
-    ),
+  return [
+    'operations' => [
+      [
+        'bc_islandora_create_pdf_page_batch_operation',
+        [
+          $pages,
+          $options,
+        ],
+      ],
+      [
+        'bc_islandora_create_pdf_paged_content_batch_operation',
+        [$paged_content->id],
+      ],
+    ],
     'finished' => 'islandora_paged_content_batch_finished',
-    'title' => t('Creating PDF from @label ...', array('@label' => $paged_content->label)),
-    'init_message' => t('Preparing to create PDF from @label ...', array('@label' => $paged_content->label)),
+    'title' => t('Creating PDF from @label ...', ['@label' => $paged_content->label]),
+    'init_message' => t('Preparing to create PDF from @label ...', ['@label' => $paged_content->label]),
     'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
     'error_message' => t('An error has occurred.'),
     'file' => 'sites/all/drush/includes/bc_islandora.drush_batch.inc',
-  );
+  ];
 }
 
 /**
@@ -206,15 +220,19 @@ function bc_islandora_create_pdf_paged_content_batch_operation($paged_content_id
   $files = array_slice($context['results']['pages'], $context['sandbox']['progress'], 10);
   $append = $context['sandbox']['progress'] != 0;
   $context['results']['successful'][] = $append ? islandora_paged_content_pdf_append($pdf_file, $files) : islandora_paged_content_pdf_combine($files, $pdf_file);
-  $finished_message = array('Created PDF with @pages pages.', array('@pages' => count($context['results']['pages'])));
+  $finished_message = [
+    'Created PDF with @pages pages.',
+    ['@pages' => count($context['results']['pages'])],
+  ];
   if (islandora_paged_content_end_batch_operation($context, count($files), $finished_message)) {
     // I modified this line to add the MODS id label.
     islandora_paged_content_update_datastream($paged_content, $pdf_file, _mods_id_label($paged_content, 'PDF'));
     $context['results']['files'][] = $pdf_file;
   }
-  $context['message'] = t('Adding page @page of @total to the PDF ...', array(
-                          '@page' => $context['sandbox']['progress'],
-                          '@total' => $context['sandbox']['total']));
+  $context['message'] = t('Adding page @page of @total to the PDF ...', [
+    '@page' => $context['sandbox']['progress'],
+    '@total' => $context['sandbox']['total'],
+  ]);
 }
 
 
@@ -239,9 +257,10 @@ function bc_islandora_create_pdf_page_batch_operation(array $pages, array $optio
     // I modified this line to add the MODS id label.
     $context['results']['successful'][] = islandora_paged_content_update_datastream($page, $pdf_file, _mods_id_label($page, 'PDF'));
     islandora_paged_content_end_batch_operation($context);
-    $context['message'] = t('Converting page @page of @total into a PDF ...', array(
-                            '@page' => $context['sandbox']['progress'],
-                            '@total' => $context['sandbox']['total']));
+    $context['message'] = t('Converting page @page of @total into a PDF ...', [
+      '@page' => $context['sandbox']['progress'],
+      '@total' => $context['sandbox']['total'],
+    ]);
   }
 }
 

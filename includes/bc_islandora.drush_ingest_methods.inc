@@ -16,6 +16,8 @@ require_once 'bc_islandora.drush_ingest_helpers.inc';
  *
  * Barnard maps Collection Record Group to Islandora Object Namespacing.
  *
+ * @author Benjamin Rosner, gh br2490.
+ *
  * @see https://archives.barnard.edu/finding-materials/collections-list#Record%20Group%2015:%20Alumnae%20Scrapbooks'
  * @see https://docs.google.com/spreadsheets/d/1VGg6RIV9httTIL5F-Vy_0EpWXfne4xTiG2mFZmO5dwA
  * @see _map_rg15_csv_rows()
@@ -54,7 +56,7 @@ require_once 'bc_islandora.drush_ingest_helpers.inc';
 function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
   // Return early if md_file is not found. This signals failure.
   if (!file_exists($md_file)) {
-    drush_log(dt("File not found: @md_file", array('@md_file' => $md_file)), 'error');
+    drush_log(dt("File not found: @md_file", ['@md_file' => $md_file]), 'error');
     return;
   }
 
@@ -64,9 +66,13 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
   $id_option = $options['identifier'];
   $ingest = $options['ingest'];
   // The default ingest collection for all scrapbooks.
+  // @todo parametrize.
   $alumnae_scrapbook_collection = 'BC15:0';
   // The file extensions that should be treated as archival objects for ingest.
-  $object_allowed_exts = array('tif', 'tiff');
+  $object_allowed_exts = ['tif', 'tiff'];
+  // This collection has compound objects.
+  module_load_include('inc', 'islandora_compound_object', 'includes/manage.form');
+  $create_thumbs = variable_get('islandora_compound_object_thumbnail_child', TRUE);
 
   // CSV row processor.
   foreach ($csv as $row) {
@@ -95,7 +101,10 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     if ($object_unique_name === '0') {
       if (!isset($object_collection)) {
         drush_log(dt("Creating parent collection for @object at PID: @parent_collection.",
-          array('@object' => $object_namespace, '@parent_collection' => $alumna_collection_pid)), 'ok');
+          [
+            '@object' => $object_namespace,
+            '@parent_collection' => $alumna_collection_pid,
+          ]), 'ok');
         // Set required parameters for create_simple_object in our array.
         $object_row['content_model'] = 'islandora:collectionCModel';
         $object_row['id'] = $object_namespace;
@@ -103,9 +112,12 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         create_simple_object($alumna_collection_pid, $object_row, $alumnae_scrapbook_collection);
       }
       elseif (isset($object_collection)) {
-        // This should be an option to overwrite, but I'm lazy.
+        // This should be an option to overwrite, recreate, etc. but I'm lazy.
         drush_log(dt("The parent collection for @object already exists: @parent_collection.",
-          array('@object' => $object_namespace, '@parent_collection' => $alumna_collection_pid)), 'ok');
+          [
+            '@object' => $object_namespace,
+            '@parent_collection' => $alumna_collection_pid,
+          ]), 'ok');
       }
       continue;
     }
@@ -115,7 +127,10 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
       // We can get to this point if a collection hasn't yet been defined in the
       // CSV before objects are being ingested into it. Order matters.
       drush_log(dt("Missing parent collection: @parent_collection for: @object. A collection must be included in your ingest. Skipping @object...",
-        array('@object' => $row['id'], '@parent_collection' => $alumna_collection_pid)), 'error');
+        [
+          '@object' => $row['id'],
+          '@parent_collection' => $alumna_collection_pid,
+        ]), 'error');
       continue;
     }
 
@@ -123,14 +138,17 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     $book_path = dirname($md_file) . '/' . $object_unique_name;
 
     if (!is_dir($book_path)) {
-      drush_log(dt("Could not find @object to ingest at: @path", array('@path' => $book_path, '@object' => $object_unique_name)), 'error');
+      drush_log(dt("Could not find @object to ingest at: @path", [
+        '@path' => $book_path,
+        '@object' => $object_unique_name,
+      ]), 'error');
       return;
     }
 
     // Now we begin scouring directories and creating islandora objects.
-    $current_scrapbook_pid;
+    $current_scrapbook_pid = "";
     $is_compound = FALSE;
-    $inclusion_pids = array();
+    $inclusion_pids = [];
     foreach (scandir($book_path) as $page_object) {
       $filepath = "$book_path/$page_object";
       $current_file = pathinfo($filepath);
@@ -142,34 +160,40 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
       }
 
       // Copy CSV Row data, we need to modify some parts depending on the type
-      // of object (e.g., changing title, pagenumb, etc.).
+      // of object (e.g., changing title, pagenumb, etc.). self = this.
       $object_row_copy = $object_row;
 
       // File name string regex to vars and number of matches.
       $record_group = $scrapbook_name = $scrapbook_page = $inclusion_id = $inclusion_page = NULL;
       $matches = sscanf($current_file['filename'], '%[^_]_%[^_]_%d_%d_%d', $record_group, $scrapbook_name, $scrapbook_page, $inclusion_id, $inclusion_page);
 
-      // Only valid cases based on file names.
+      // Only valid cases based on file names should be 3 or 5 matches.
+      // If we have 3 matches, ayy, forgetaboutit, but if we have 5 we have
+      // inclusions, and well, we just cant forgetaboutit now. #nyc.
       if (!$matches == 3 || !$matches == 5) {
-        // This signals complete failure.
-        throw new Exception("Oh shit.", 1);
+        // This signals complete failure. Appropriate error message. -br2490.
+        throw new Exception("File naming convention error. oh jeez.", 1);
       }
 
-      // We initialize these variables since we know we have an object.
+      // Create these variables since we know we have an object and we'll wanna
+      // do check for MODS, OCR, etc., files that go along with it.
       $mods_file = "$book_path/${current_file['filename']}.xml";
+      // Unfortunately we end up testing if the mod file exists several times,
+      // so rather than that, save it here:
       $mods_file_found = file_exists($mods_file);
       $ocr_file = "$book_path/${current_file['filename']}.txt";
       $page_padded = sprintf("%'.03d", $scrapbook_page);
       $inclusion_page_padded = isset($inclusion_page) ? sprintf("%'.03d", $inclusion_page) : NULL;
 
-      // Book creation begins here.
-      // Target: the first page of each object to make a book.
+      // ## Book creation begins here.
+      // The first page of each object signals make a book for them to chill in.
       if ($scrapbook_page == 1 || $inclusion_page == 1) {
         // Since we are on the first page of a book or an inclusion we need
-        // to create a book object, and then ingest the it's first page below.
+        // to create a book object, and then ingest the its first page below.
         $object_row_copy['content_model'] = 'islandora:bookCModel';
 
-        // Check for MODS file presence.
+        // Check for MODS file presence. This could be done better, looking at
+        // it again with fresher eyes. -br2490.
         if ($mods_file_found) {
           drush_log("Found XML mods file for: " . $object_row_copy['id'], 'ok');
           $object_row_copy['xml'] = file_get_contents($xml_mods_file);
@@ -183,7 +207,8 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
           }
           $current_scrapbook_pid = create_simple_object($object_namespace, $object_row_copy, $alumna_collection_pid);
           drush_log("SUCCESS! scrapbook pid: $current_scrapbook_pid", 'ok');
-        } else {
+        }
+        else {
           if (!$mods_file_found) {
             drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']}", 'ok');
             // There are likely other variables that will need to be modified
@@ -191,12 +216,14 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
             $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id";
             $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion');
           }
-          $inclusion_pids{$inclusion_id} = $lazy = create_simple_object($object_namespace, $object_row_copy, $alumna_collection_pid);
+          // This contains all of our inclusions.
+          $is_compound = TRUE;
+          $inclusion_pids["$scrapbook_page.$inclusion_id"] = $lazy = create_simple_object($object_namespace, $object_row_copy, $alumna_collection_pid);
           drush_log("SUCCESS! inclusion pid: $lazy", 'ok');
         }
       }
-      // Book creation has ended.
-      // Page creation begins here.
+      // ## Book creation has ended.
+      // ## Page creation begins here.
       // Setting object_row_copy variables that will be required by
       // create_complete_object().
       $object_row_copy['content_model'] = 'islandora:pageCModel';
@@ -216,7 +243,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         drush_log("Scrapbook page: $page_padded -> destination: $dest", 'ok');
       }
       else {
-        $dest = $inclusion_pids[$inclusion_id];
+        $dest = $inclusion_pids["$scrapbook_page.$inclusion_id"];
         $object_row_copy['id'] = "${object_row_copy['id']}_inclusion_$inclusion_id_$inclusion_page_padded";
         $object_row_copy['page_number'] = $inclusion_page;
         $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id, page $inclusion_page";
@@ -224,10 +251,30 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion_page');
         drush_log("Inclusion page: $inclusion_page_padded -> destination: $dest", 'ok');
       }
-      // Now actually create the damn page!
+      // Now actually create the dang page!
       create_complete_object($object_namespace, $object_row_copy, $dest, $filepath);
-    }
-  }
+    } // End scandir for objects.
+    if ($is_compound) {
+      drush_log(dt("We have a compound object - a book with inclusions. Building a Simple Compound Object (oxymoron) and associating scrapbook and inclusions."));
+
+      // Grab a clean copy of our CSV row to create a compound obj. self = this.
+      $object_row_copy = $object_row;
+
+      $object_row_copy['content_model'] = ISLANDORA_COMPOUND_OBJECT_CMODEL;
+      $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'book');
+      $compound_object_pid = create_simple_object($object_namespace, $object_row_copy, $alumna_collection_pid);
+
+      $parts = [];
+      $parts[] = islandora_object_load($current_scrapbook_pid);
+      foreach ($inclusion_pids as $inclusion_pid) {
+        $parts[] = islandora_object_load($inclusion_pid);
+      }
+      islandora_compound_object_add_parent($parts, $compound_object_pid);
+      if ($create_thumbs) {
+        islandora_compound_object_update_parent_thumbnail($compound_object_pid);
+      }
+    } // End of Compound object handling.
+  } // End of rows in CSV.
 }
 
 /**
@@ -238,7 +285,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
   if (file_exists($md_file)) {
     $md_fh = fopen($md_file, 'r');
     while (($data = fgetcsv($md_fh)) !== FALSE) {
-      $ms_data = array();
+      $ms_data = [];
       $ms_data['id'] = $data[0];
       // Skip this row if we got an id option and this id doesn't match.
       if ($id_option && $id_option != $ms_data['id']) {
@@ -293,7 +340,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
           $ms_parent_pid = create_pub_object($manuscript_ns, $ms_data);
         }
         else {
-          drush_log(dt('Object exists: @manuscript_ns', array('@manuscript_ns' => $manuscript_ns)), 'ok');
+          drush_log(dt('Object exists: @manuscript_ns', ['@manuscript_ns' => $manuscript_ns]), 'ok');
         }
 
         foreach (scandir($ms_data_dir) as $ms_file) {
@@ -321,7 +368,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
               create_page_object($ms_data_dir . '/' . $ms_file, $ms_data, $ms_parent_pid, $manuscript_ns, 'ms');
             }
             else {
-              drush_log(dt('Object exists: @page_pid', array('@page_pid' => $page_pid)), 'ok');
+              drush_log(dt('Object exists: @page_pid', ['@page_pid' => $page_pid]), 'ok');
             }
           }
         }
@@ -329,7 +376,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
     }
   }
   else {
-    drush_log(dt("File not found: @md_file", array('@md_file' => $md_file)), 'error');
+    drush_log(dt("File not found: @md_file", ['@md_file' => $md_file]), 'error');
   }
 }
 
@@ -340,7 +387,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
  * title,date,filename,"page number",type,extent
  * "Barnard Bulletin, October 1, 1990","October 1, 1990",,,issue,24
  */
-function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
+function _bc_islandora_drush_ingest_newspaper($query_file, $options = []) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
@@ -359,7 +406,7 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
 
   $path_name = empty($csv_file) ? dirname($query_file) : dirname($csv_file);
   $line_number = 0;
-  $issues = array();
+  $issues = [];
 
   if (!$fh) {
     drush_log("Couldn't open file.", 'error');
@@ -383,7 +430,7 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
         // (N.B. this process will also allow the user to remove all
         // associated issue pages.)
         else {
-          $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
+          $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", ['@pid' => $issue_pid]));
           if (preg_match('/^y/', strtolower($continue)) === 1) {
             drush_bc_islandora_purge_object($issue_pid);
             $issue_pid = create_issue_object($issue_pid, $data);
@@ -402,7 +449,7 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
         }
         // If we found an existing page, prompt user on action.
         else {
-          $continue = drush_prompt(dt("Page exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $page_pid)));
+          $continue = drush_prompt(dt("Page exists at pid = @pid. Overwrite? (y/n)", ['@pid' => $page_pid]));
           if (preg_match('/^y/', strtolower($continue)) === 1) {
             drush_bc_islandora_purge_object($page_pid);
             create_page_object($path_name, $data, $issue_pid, $page_pid, 'newspaper');
@@ -418,7 +465,7 @@ function _bc_islandora_drush_ingest_newspaper($query_file, $options = array()) {
 /**
  * Ingests a book.
  */
-function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
+function _bc_islandora_drush_ingest_book($query_file, $options = []) {
   module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
   module_load_include('inc', 'islandora_paged_content', 'includes/batch');
 
@@ -426,7 +473,7 @@ function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
 
   $fh = fopen($query_file, 'r');
   $year = isset($options['year']) ? $options['year'] : NULL;
-  $books = array();
+  $books = [];
 
   while (($data = fgetcsv($fh)) !== FALSE) {
     $csv_year = $data[3];
@@ -440,13 +487,13 @@ function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
     $pages = $data[12];
 
     if (!islandora_object_load($book_pid)) {
-      drush_log("Creating book at pid = @pid", array('@pid' => $book_pid), 'ok');
+      drush_log("Creating book at pid = @pid", ['@pid' => $book_pid], 'ok');
       $book_pid = create_book_object($book_pid, $data);
     }
     else {
-      $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
+      $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", ['@pid' => $issue_pid]));
       if (preg_match('/^y/', strtolower($continue)) === 1) {
-        drush_log(dt("Removing object: @pid", array('@pid' => $issue_pid)), 'ok');
+        drush_log(dt("Removing object: @pid", ['@pid' => $issue_pid]), 'ok');
         drush_bc_islandora_purge_object($issue_pid);
         $book_pid = create_book_object($book_pid, $data);
       }
@@ -470,13 +517,13 @@ function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
             create_page_object($fn, $data, $book_pid, $page_pid, 'book');
           }
           else {
-            drush_log(dt("Page exists at pid = @pid. Skipping...", array('@pid' => $page_pid)), 'warning');
+            drush_log(dt("Page exists at pid = @pid. Skipping...", ['@pid' => $page_pid]), 'warning');
           }
         }
       }
     }
     else {
-      drush_log(dt("File not found: @file_path", array('@file_path' => $file_path)), 'error');
+      drush_log(dt("File not found: @file_path", ['@file_path' => $file_path]), 'error');
     }
   }
   // TODO should we keep this?
@@ -489,7 +536,7 @@ function _bc_islandora_drush_ingest_book($query_file, $options = array()) {
  * @param string $directory
  *   The directory containing publications to ingest.
  */
-function _bc_islandora_drush_ingest_student_publication($directory, $options = array()) {
+function _bc_islandora_drush_ingest_student_publication($directory, $options = []) {
   $pub_id = $options['identifier'];
 
   if (is_dir($directory)) {
@@ -508,7 +555,7 @@ function _bc_islandora_drush_ingest_student_publication($directory, $options = a
       $pub_pid = 'bc:' . $pid_title;
       // Publication ids that constitute "exceptions" (different behavior
       // required).
-      $exceptions = array('BC12-9_1959', 'BC12-26_1970', 'BC12-30_C19711972');
+      $exceptions = ['BC12-9_1959', 'BC12-26_1970', 'BC12-30_C19711972'];
       $exception = in_array(array_pop(explode('/', $path)), $exceptions);
       // If pub object doesn't exist, create it.
       if (!islandora_object_load($pub_pid) && !$exception) {
@@ -519,9 +566,9 @@ function _bc_islandora_drush_ingest_student_publication($directory, $options = a
         $book_pid = create_book_object($pub_pid, _bc_islandora_pub_data($xml_file, $collection_pid));
       }
       else {
-        $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $pub_pid)));
+        $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", ['@pid' => $pub_pid]));
         if (preg_match('/^y/', strtolower($continue)) === 1) {
-          drush_log(dt("Removing object: @pub_pid", array('@pub_pid' => $pub_pid)), 'ok');
+          drush_log(dt("Removing object: @pub_pid", ['@pub_pid' => $pub_pid]), 'ok');
           drush_bc_islandora_purge_object($pub_pid);
           create_pub_object($pub_pid, $pub_data);
         }
@@ -540,20 +587,20 @@ function _bc_islandora_drush_ingest_student_publication($directory, $options = a
         else {
           // Create a book object corresponding to each pub.
           foreach (scandir($path) as $subfile) {
-            $subpath = implode('/', array($path, $subfile));
-            $xml_file = implode('/', array($subpath, $subfile)) . '.xml';
+            $subpath = implode('/', [$path, $subfile]);
+            $xml_file = implode('/', [$subpath, $subfile]) . '.xml';
             if ((!is_dir($subpath) || preg_match('/^\./', $subdir) !== 0 || !file_exists($xml_file)) && !$exception) {
               continue;
             }
             $book_data = _bc_islandora_pub_data($xml_file, $pub_pid, 'book');
-            $issue_pid = implode('-', array($pub_pid, $book_data['date']));
+            $issue_pid = implode('-', [$pub_pid, $book_data['date']]);
             if (!islandora_object_load($issue_pid)) {
               create_book_object($issue_pid, $book_data);
             }
             else {
-              $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", array('@pid' => $issue_pid)));
+              $continue = drush_prompt(dt("Object exists at pid = @pid. Overwrite? (y/n)", ['@pid' => $issue_pid]));
               if (preg_match('/^y/', strtolower($continue)) === 1) {
-                drush_log(dt("Removing object: @pub_pid", array('@pub_pid' => $issue_pid)), 'ok');
+                drush_log(dt("Removing object: @pub_pid", ['@pub_pid' => $issue_pid]), 'ok');
                 drush_bc_islandora_purge_object($issue_pid);
                 create_book_object($issue_pid, $book_data);
               }
