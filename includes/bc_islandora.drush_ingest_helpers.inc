@@ -43,6 +43,7 @@ function create_simple_object($pid, $data, $collection_pid) {
 
   $connection = islandora_get_tuque_connection();
   $repository = $connection->repository;
+
   $object = $repository->constructObject($pid);
 
   $object->label = $data['title'];

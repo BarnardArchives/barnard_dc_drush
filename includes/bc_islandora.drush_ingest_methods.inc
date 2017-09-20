@@ -48,10 +48,15 @@ require_once 'bc_islandora.drush_ingest_helpers.inc';
  * ./ingest_metadata.csv (see Google Doc above, permission required.)
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.tiff
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.txt*
- * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION_ID_[0-9]{3}.tiff
- * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION_ID_[0-9]{3}.txt*
+ * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION-ID_[0-9]{3}.tiff
+ * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION-ID_[0-9]{3}.txt*
  *  where [0-9]{3} are padded page numbers, i.e.: 000, 001, 002...998, 999.
  *  *optional OCR stream to ingest
+ * OR for SINGLE OBJECTS ONLY!  (the same notes apply.)
+ * ./ingest_metadata.csv (the file name doesn't matter)
+ * ./BC15-18_[0-9]{3}.tiff
+ * ./BC15-18_[0-9]{3}.txt
+ * ./BC15-18_[0-9]{3}_INCLUSION-ID_[0-9]{3}.tiff
  */
 function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
   // Return early if md_file is not found. This signals failure.
@@ -79,14 +84,17 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     // "xpath" our csv to an associative array.
     $object_row = _map_rg15_csv_rows($row);
 
+    // Object row ID looks like: BC15-18:0 (collection) BC15-18 (single item),
+    // or BC15-18_someUniqueName - where someUniqueName is also the folder
+    // containing the tiffs.
     $object_split = preg_split("(:|_)", $object_row['id']);
-
-    // This alumna namespace (e.g., BC15-12, BC15-15, etc.).
+    // This alumna namespace in THIS instance (e.g., BC15-12, BC15-15, etc.).
     $object_namespace = $object_split[0];
+    // The name of the volume being ingested (e.g., v1, scrapbook1908, etc.).
+    $object_unique_name = isset($object_split[1]) ? $object_split[1] : '';
+
     // This alumna parent collection (e.g., BC15-12:0, BC15-14:0, etc.).
     $alumna_collection_pid = $object_namespace . ':0';
-    // A unique name for the obj (directory) or "0" if it is a collection.
-    $object_unique_name = isset($object_split[1]) ? $object_split[1] : '';
 
     // Skip this row if we got an id option and this id doesn't match.
     if ($id_option && $id_option != $object_namespace) {
@@ -99,7 +107,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
 
     // Alumna Collection creation and ingest.
     if ($object_unique_name === '0') {
-      if (!isset($object_collection)) {
+      if (!$object_collection) {
         drush_log(dt("Creating parent collection for @object at PID: @parent_collection.",
           [
             '@object' => $object_namespace,
@@ -111,7 +119,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         $object_row['xml'] = _bc_islandora_rg15_mods($object_row, 'collection');
         create_simple_object($alumna_collection_pid, $object_row, $alumnae_scrapbook_collection);
       }
-      elseif (isset($object_collection)) {
+      elseif ($object_collection) {
         // This should be an option to overwrite, recreate, etc. but I'm lazy.
         drush_log(dt("The parent collection for @object already exists: @parent_collection.",
           [
@@ -165,7 +173,14 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
 
       // File name string regex to vars and number of matches.
       $record_group = $scrapbook_name = $scrapbook_page = $inclusion_id = $inclusion_page = NULL;
-      $matches = sscanf($current_file['filename'], '%[^_]_%[^_]_%d_%d_%d', $record_group, $scrapbook_name, $scrapbook_page, $inclusion_id, $inclusion_page);
+      if ($object_unique_name === '') {
+        $matches = sscanf($current_file['filename'], '%[^_]_%d_%d_%d', $record_group, $scrapbook_page, $inclusion_id, $inclusion_page);
+        // Forgive me.
+        $matches++;
+      }
+      else {
+        $matches = sscanf($current_file['filename'], '%[^_]_%[^_]_%d_%d_%d', $record_group, $scrapbook_name, $scrapbook_page, $inclusion_id, $inclusion_page);
+      }
 
       // Only valid cases based on file names should be 3 or 5 matches.
       // If we have 3 matches, ayy, forgetaboutit, but if we have 5 we have
@@ -244,7 +259,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
       }
       else {
         $dest = $inclusion_pids["$scrapbook_page.$inclusion_id"];
-        $object_row_copy['id'] = "${object_row_copy['id']}_inclusion_$inclusion_id_$inclusion_page_padded";
+        $object_row_copy['id'] = "${object_row_copy['id']}_inclusion_{$inclusion_id}_$inclusion_page_padded";
         $object_row_copy['page_number'] = $inclusion_page;
         $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id, page $inclusion_page";
         drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']}", 'ok');
