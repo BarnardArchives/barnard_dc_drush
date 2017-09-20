@@ -165,7 +165,6 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     }
   }
 
-
   module_load_include('inc', 'islandora', 'RestConnection');
 
   $connection = islandora_get_tuque_connection();
@@ -297,7 +296,6 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
 }
 
 // Working but deprecated and need updating:
-
 /**
  * Generates csv input for newspaper ingest.
  */
