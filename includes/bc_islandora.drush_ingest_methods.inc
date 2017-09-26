@@ -53,13 +53,17 @@ require_once 'bc_islandora.drush_ingest_helpers.inc';
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}.txt*
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION-ID_[0-9]{3}.tiff
  * ./BC15-12_diaryxyz/scannedimg_ID_[0-9]{3}_INCLUSION-ID_[0-9]{3}.txt*
- *  where [0-9]{3} are padded page numbers, i.e.: 000, 001, 002...998, 999.
+ * OR for SINGLE OBJECT COLLECTIONS (no main unique name or 'ID' is used.)
+ * ./BC15-18/BC15-18_[0-9]{3}.tiff
+ * ./BC15-18/BC15-18_[0-9]{3}.txt*
+ * ./BC15-18/BC15-18_[0-9]{3}_INCLUSION-ID_[0-9]{3}.tiff
+ * ./BC15-18/BC15-18_[0-9]{3}_INCLUSION-ID_[0-9]{3}.txt*
+ * [0-9]{3} are padded page numbers, i.e.: 000, 001, 002...998, 999.
+ * ideally inclusion ids should be numbered sequentially for that page.
  *  *optional OCR stream to ingest
- * OR for SINGLE OBJECTS ONLY!  (the same notes apply.)
- * ./ingest_metadata.csv (the file name doesn't matter)
- * ./BC15-18_[0-9]{3}.tiff
- * ./BC15-18_[0-9]{3}.txt
- * ./BC15-18_[0-9]{3}_INCLUSION-ID_[0-9]{3}.tiff
+ * NOTE: .xml files will be read as MODS and can override at any level based on
+ * how the file is named. the more specific... you get the idea.
+ * the only files extensions checked for: TIFF, XML, TXT.
  */
 function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
   // Return early if md_file is not found. This signals failure.
@@ -77,7 +81,6 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
   $alumnae_scrapbook_collection = variable_get('bc_islandora_scrapbook_pid', 'BC15:0');
   // The file extensions that should be treated as archival objects for ingest.
   $object_allowed_exts = ['tif', 'tiff'];
-  // This collection has compound objects.
 
   // CSV row processor.
   foreach ($csv as $row) {
@@ -93,7 +96,9 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     // This alum's parent collection PID (e.g., BC15-12:0, BC15-14:0, etc.).
     $alum_collection_pid = "$object_namespace:0";
     // The name of the object being ingested (e.g., v1, scrapbook1908, etc.).
-    $object_unique_name = isset($object_split[1]) ? $object_split[1] : '';
+    // If we don't have a unique name, we're ingest a "single item collection"
+    // and will locate the object directory by it's namespace. (e.g. BC15-18.)
+    $object_unique_name = isset($object_split[1]) ? $object_split[1] : $object_namespace;
 
     // Skip this row if we got an id option and this id doesn't match.
     if ($id_option && $id_option != $object_namespace) {
@@ -178,7 +183,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
 
       // File name string regex to vars and number of matches.
       $record_group = $scrapbook_name = $scrapbook_page = $inclusion_id = $inclusion_page = NULL;
-      if ($object_unique_name === '') {
+      if ($object_unique_name === $object_namespace) {
         $matches = sscanf($current_file['filename'], '%[^_]_%d_%d_%d', $record_group, $scrapbook_page, $inclusion_id, $inclusion_page);
         // Forgive me.
         $matches++;
@@ -235,8 +240,9 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
             $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id";
             $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion');
           }
-          // This contains all of our inclusions.
+          // This object has inclusion objects, we have a compound object.
           $is_current_compound = TRUE;
+          // This contains all of our inclusions.
           $inclusion_pids["$scrapbook_page.$inclusion_id"] = $lazy = create_simple_object($object_namespace, $object_row_copy, $alum_collection_pid);
           drush_log("SUCCESS! inclusion pid: $lazy", 'ok');
         }
