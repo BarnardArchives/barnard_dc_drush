@@ -10,7 +10,7 @@
  */
 
 require_once 'bc_islandora.drush_ingest_helpers.inc';
-
+define('BARNARD_SINGLE_OBJECT_COLLECTION', -1);
 /**
  * Record Group BC15: Alumnae Scrapbooks, ingest method.
  *
@@ -98,7 +98,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     // The name of the object being ingested (e.g., v1, scrapbook1908, etc.).
     // If we don't have a unique name, we're ingest a "single item collection"
     // and will locate the object directory by it's namespace. (e.g. BC15-18.)
-    $object_unique_name = isset($object_split[1]) ? $object_split[1] : $object_namespace;
+    $object_unique_name = isset($object_split[1]) ? $object_split[1] : BARNARD_SINGLE_OBJECT_COLLECTION;
 
     // Skip this row if we got an id option and this id doesn't match.
     if ($id_option && $id_option != $object_namespace) {
@@ -108,7 +108,6 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
 
     // We use this more than once. Try to load the alum's collection.
     $object_collection = islandora_object_load($alum_collection_pid);
-
 
     // Alum's collection creation and ingest.
     // --
@@ -153,12 +152,13 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
     // Grab a drink before reading the code after this comment.  maybe two.
     // --
     // Book and page object creation.
-    $object_path = dirname($md_file) . '/' . $object_unique_name;
+//    $object_path = dirname($md_file) . '/' . $object_unique_name;
+    $object_path = dirname($md_file) . '/' . $object_row['id'];
 
     if (!is_dir($object_path)) {
       drush_log(dt("Could not find @object to ingest at: @path", [
         '@path' => $object_path,
-        '@object' => $object_unique_name,
+        '@object' => $object_row['id'],
       ]), 'error');
       return;
     }
@@ -183,9 +183,9 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
 
       // File name string regex to vars and number of matches.
       $record_group = $scrapbook_name = $scrapbook_page = $inclusion_id = $inclusion_page = NULL;
-      if ($object_unique_name === $object_namespace) {
+      if ($object_unique_name === BARNARD_SINGLE_OBJECT_COLLECTION) {
         $matches = sscanf($current_file['filename'], '%[^_]_%d_%d_%d', $record_group, $scrapbook_page, $inclusion_id, $inclusion_page);
-        // Forgive me.
+        // This is called LAZINESS. Forgive me. -bravo romeo 2490, out.
         $matches++;
       }
       else {
@@ -220,7 +220,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         // it again with fresher eyes. -br2490.
         if ($mods_file_found) {
           drush_log("Found XML mods file for: " . $object_row_copy['id'], 'ok');
-          $object_row_copy['xml'] = file_get_contents($xml_mods_file);
+          $object_row_copy['xml'] = file_get_contents($mods_file);
         }
 
         // Ingest of book objects. Hold PIDs of created books in variable.
