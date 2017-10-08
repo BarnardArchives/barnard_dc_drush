@@ -102,10 +102,11 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
 
     // Skip this row if we got an id option and this id doesn't match.
     if ($id_option && $id_option != $object_namespace) {
-      drush_log("Skipped due to namespace mismatch: " . $csv_row['id'], 'error');
+      drush_log("Skipped due to namespace mismatch: " . $object_row['id'], 'error');
       continue;
     }
 
+    $scrapbook_exception = 'BC15-02' === $object_namespace;
     // We use this more than once. Try to load the alum's collection.
     $object_collection = islandora_object_load($alum_collection_pid);
 
@@ -237,7 +238,8 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
             drush_log("Building RG15 book inclusion MODS for: ${object_row_copy['id']}", 'ok');
             // There are likely other variables that will need to be modified
             // before we call MODs generation, much less ingest.
-            $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id";
+            $object_row_copy['title'] = ($scrapbook_exception) ? "${object_row['title']}, page $page_padded, Inclusion $inclusion_id" : "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id";
+
             $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion');
           }
           // This object has inclusion objects, we have a compound object.
@@ -264,7 +266,7 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         $object_row_copy['id'] = "${object_row_copy['id']}_$page_padded";
         $object_row_copy['page_number'] = $scrapbook_page;
         $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page";
-        drush_log("Building RG15 page MODS for: ${object_row_copy['id']}", 'ok');
+        drush_log("Building RG15 page MODS for: ${object_row_copy['id']} Page: $scrapbook_page", 'ok');
         $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'page');
         drush_log("Scrapbook page: $page_padded -> destination: $dest", 'ok');
       }
@@ -272,15 +274,15 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
         $dest = $inclusion_pids["$scrapbook_page.$inclusion_id"];
         $object_row_copy['id'] = "${object_row_copy['id']}_inclusion_{$inclusion_id}_$inclusion_page_padded";
         $object_row_copy['page_number'] = $inclusion_page;
-        $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id, page $inclusion_page";
-        drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']}", 'ok');
+        $object_row_copy['title'] = ($scrapbook_exception) ? "${object_row['title']}, page $page_padded, Inclusion $inclusion_id, page $inclusion_page" : "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id, page $inclusion_page";
+        drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']} Page: $scrapbook_page Inclusion: $inclusion_id Page: $inclusion_page", 'ok');
         $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion_page');
         drush_log("Inclusion page: $inclusion_page_padded -> destination: $dest", 'ok');
       }
       // Now actually create the dang page!
       create_complete_object($object_namespace, $object_row_copy, $dest, $filepath);
     } // End scandir for objects.
-    if ($is_current_compound) {
+    if ($is_current_compound && !$scrapbook_exception) {
       drush_log(dt("We have a compound object - a book with inclusions."), 'notice');
 
       // Not sure if necessary to load the module.
@@ -305,9 +307,12 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
       }
       islandora_compound_object_add_parent($parts, $compound_object_pid);
       islandora_compound_object_change_thumbnail($compound_object_pid);
-      drush_log(dt("Success! A Compound Object with associated scrapbook and inclusions created."), 'ok');
+      drush_log(dt("A Compound Object with associated scrapbook and inclusions created."), 'success');
 
-    } // End of Compound object handling.
+    }
+    else {
+      drush_log(dt("This was not a compound object or it was an exception (i.e., not allowed)."), 'success');
+    }// End of Compound object handling.
   } // End of rows in CSV.
 }
 

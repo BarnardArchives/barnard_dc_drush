@@ -28,15 +28,18 @@ require_once 'bc_islandora.drush_mods_data.inc';
  * @param string $collection_pid
  *   Parent object this object is member of (this sets RELS-EXT relationships)
  *
- * @return string PID
+ * @return string|null
  *   PID of the newly created object.
+ *
+ * @throws \Exception
+ *   Because this documentation is accurate.
  */
-function create_simple_object($pid, $data, $collection_pid) {
+function create_simple_object($pid, array $data, $collection_pid) {
   $required_variables = array('title', 'content_model', 'xml');
   foreach ($required_variables as $v) {
     if (!isset($data[$v])) {
       drush_log(dt('Could not create @pid due to missing required variable: @missing.', array('@pid' => $pid, '@missing' => $v)), 'error');
-      return;
+      return NULL;
     }
   }
   module_load_include('inc', 'islandora', 'RestConnection');
@@ -105,11 +108,11 @@ function create_simple_object($pid, $data, $collection_pid) {
   $ret = '';
   if ($ingest == TRUE) {
     $ret = $object->id;
-    drush_log(dt("object: @type destination: @dest created successfully. PID: @pid\n",
+    drush_log(dt("create simple object: @type destination: @dest created successfully. PID: @pid",
       array('@type' => $content_model_type, '@dest' => $pid, '@pid' => $ret)), 'success');
   }
   else {
-    drush_log(dt("object: @type destination: @dest failed to be created.\n", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
+    drush_log(dt("create simple object: @type destination: @dest failed to be created.", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
   }
 
   // Make sure destructors are called as this script can run for a long time.
@@ -148,20 +151,22 @@ function create_simple_object($pid, $data, $collection_pid) {
  * @param string $file_path
  *   Full path to the archival object on the file system to ingest.
  *
- * @todo Change $data['page_number'] since we don't really know what type of
- * OBJ. Make less assumptions.
+ * @return string|null
+ *   PID of the newly created object.
  *
- * @return string PID
- *    PID of the newly created object.
+ * @throws \Exception
+ *   Because this documentation is accurate.
+ *
+ * @todo Change $data['page_number'] since we don't really know what type of OBJ. Make less assumptions.
  */
-function create_complete_object($pid, $data, $collection_pid, $file_path) {
+function create_complete_object($pid, array $data, $collection_pid, $file_path) {
   $required_variables = array('title', 'content_model', 'xml', 'mime_type',
     'mime_label',
   );
   foreach ($required_variables as $v) {
     if (!isset($data[$v])) {
       drush_log(dt('Could not create @pid due to missing required variable: @missing.', array('@pid' => $pid, '@missing' => $v)), 'error');
-      return;
+      return NULL;
     }
   }
 
@@ -260,7 +265,7 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
     $ocr_datastream->checksum = TRUE;
     $ocr_datastream->checksumType = 'MD5';
     $ocr_datastream->logMessage = 'OCR set from text file || SUCCESS';
-    drush_log("OCR set from text file.", 'ok');
+    drush_log("$pid had OCR set from text file.", 'success');
     $object->ingestDatastream($ocr_datastream);
   }
 
@@ -276,11 +281,11 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
   $ret = '';
   if ($ingest == TRUE) {
     $ret = $object->id;
-    drush_log(dt("object: @type destination: @dest created successfully. PID: @pid\n",
+    drush_log(dt("create complete object: @type destination: @dest created successfully. PID: @pid",
       array('@type' => $content_model_type, '@dest' => $pid, '@pid' => $ret)), 'success');
   }
   else {
-    drush_log(dt("object: @type destination: @dest failed to be created.\n", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
+    drush_log(dt("create complete object: @type destination: @dest failed to be created.", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
   }
 
   // Make sure destructors are called as this script can run for a long time.
@@ -295,7 +300,10 @@ function create_complete_object($pid, $data, $collection_pid, $file_path) {
   return $ret;
 }
 
-// Working but deprecated and need updating:
+/**
+ * Working but may require updating.
+ */
+
 /**
  * Generates csv input for newspaper ingest.
  */
@@ -874,54 +882,91 @@ function create_pub_object($pid, $data) {
 
 
 /**
- * Simple CSV row mapping based on @TODO the header of each row.
+ * Simple CSV row mapping based on the header of each row.
  *
  * @param array $data
- *    A structured CSV row.
+ *   A structured CSV row.
  * @param array $head
- *    Column headings (NB UNUSED).
+ *   Column headings (NB UNUSED).
+ *
+ * @return array
+ *   Chocolaty goodness.
  *
  * @todo header mapping.
  */
-function _map_rg15_csv_rows($data, $head = array()) {
-  $csv_row['id'] = $data[0];
-  $csv_row['title'] = $data[1];
+function _map_rg15_csv_rows(array $data, array $head = []) {
+  $object_data_array['id'] = $data[0];
+  $object_data_array['title'] = $data[1];
   // This can be automated by including a header row, and figuring out
   // how many 'topics' there are, their location, etc. The mods script
   // that fires after this CAN HANDLE multiples.
-  $csv_row['creators'][0]['name'] = $data[2];
-  $csv_row['creators'][0]['uri'] = $data[3];
-  $csv_row['resource_type'] = $data[4];
-  $csv_row['genre'] = $data[5];
-  $csv_row['genre_uri'] = $data[6];
-  $csv_row['date_exact'] = $data[7];
-  $csv_row['date_start_approx'] = $data[8];
-  $csv_row['date_end_approx'] = $data[9];
+  $object_data_array['creators'][0]['name'] = $data[2];
+  $object_data_array['creators'][0]['uri'] = $data[3];
+  $object_data_array['resource_type'] = $data[4];
+  $object_data_array['genre'] = $data[5];
+  $object_data_array['genre_uri'] = $data[6];
+  $object_data_array['date_exact'] = $data[7];
+  $object_data_array['date_start_approx'] = $data[8];
+  $object_data_array['date_end_approx'] = $data[9];
   // NB start and end date only present if date is approx range...
-  $csv_row['date_start_exact'] = $data[10];
-  $csv_row['date_end_exact'] = $data[11];
-  $csv_row['extent'] = $data[12];
-  $csv_row['description'] = $data[13];
-  $csv_row['location'] = $data[14];
-  $csv_row['related_item_title'] = $data[15];
-  $csv_row['related_item_pid'] = $data[16];
+  $object_data_array['date_start_exact'] = $data[10];
+  $object_data_array['date_end_exact'] = $data[11];
+  $object_data_array['extent'] = $data[12];
+  $object_data_array['description'] = $data[13];
+  $object_data_array['location'] = $data[14];
+  $object_data_array['related_item_title'] = $data[15];
+  $object_data_array['related_item_pid'] = $data[16];
   // This can be automated by including a header row, and figuring out
   // how many 'topics' there are, their location, etc. The mods script
   // that fires after this CAN HANDLE multiples.
-  $csv_row['topics'][0]['topic'] = $data[17];
-  $csv_row['topics'][0]['uri'] = $data[18];
-  $csv_row['topics'][1]['topic'] = $data[19];
-  $csv_row['topics'][1]['uri'] = $data[20];
-  $csv_row['topics'][2]['topic'] = $data[21];
-  $csv_row['topics'][2]['uri'] = $data[22];
-  $csv_row['topics'][3]['topic'] = $data[23];
-  $csv_row['topics'][3]['uri'] = $data[24];
-  $csv_row['topics'][4]['topic'] = $data[25];
-  $csv_row['topics'][4]['uri'] = $data[26];
-  $csv_row['topics'][5]['topic'] = $data[27];
-  $csv_row['topics'][5]['uri'] = $data[28];
-  $csv_row['topics'][6]['topic'] = $data[29];
-  $csv_row['topics'][6]['uri'] = $data[30];
+  $object_data_array['topics'][0]['topic'] = $data[17];
+  $object_data_array['topics'][0]['uri'] = $data[18];
+  $object_data_array['topics'][1]['topic'] = $data[19];
+  $object_data_array['topics'][1]['uri'] = $data[20];
+  $object_data_array['topics'][2]['topic'] = $data[21];
+  $object_data_array['topics'][2]['uri'] = $data[22];
+  $object_data_array['topics'][3]['topic'] = $data[23];
+  $object_data_array['topics'][3]['uri'] = $data[24];
+  $object_data_array['topics'][4]['topic'] = $data[25];
+  $object_data_array['topics'][4]['uri'] = $data[26];
+  $object_data_array['topics'][5]['topic'] = $data[27];
+  $object_data_array['topics'][5]['uri'] = $data[28];
+  $object_data_array['topics'][6]['topic'] = $data[29];
+  $object_data_array['topics'][6]['uri'] = $data[30];
 
-  return $csv_row;
+  return $object_data_array;
+}
+
+/**
+ * Simple CSV row mapping based on the header of each row.
+ *
+ * @param array $data
+ *   A structured CSV row.
+ * @param array $head
+ *   Column headings.
+ *
+ * @return array
+ *   Chocolaty goodness.
+ *
+ * @todo everything!
+ */
+function _map_csv_row_to_array(array $data, array $head) {
+  $permitted_row_titles = [
+    'id', 'title', 'creator_name', 'creator_uri', 'resource_type', 'genre',
+    'genre_uri', 'date_exact', 'date_start_approx', 'date_end_approx',
+    'date_start_exact', 'date_end_exact', 'extent', 'description', 'location',
+    'related_item_title', 'related_item_pid', 'topics_topic', 'topics_uri',
+  ];
+  $mandatory_row_titles = ['id', 'title'];
+
+  if (!in_array($mandatory_row_titles, $head)) {
+    return NULL;
+  }
+  // Function before combine to de-dupe head and append unique id to each (int).
+  // Position in data corresponds to head so map head[i] = data[i] and ret arr.
+  // @TODO have the appropriate data contained - ala, if it is a date make sure it validates as a date.
+  $object_data_array = array_combine($head, $data);
+  print_r($object_data_array);
+
+  return $object_data_array;
 }
