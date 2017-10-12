@@ -316,6 +316,193 @@ function _bc_islandora_drush_ingest_rgBC15($md_file, $options) {
   } // End of rows in CSV.
 }
 
+
+function _bc_islandora_drush_ingest_rgBC15_02($md_file, $options) {
+  // Return early if md_file is not found. This signals failure.
+  if (!file_exists($md_file)) {
+    drush_log(dt("File not found: @md_file", ['@md_file' => $md_file]), 'error');
+    return;
+  }
+
+  // Read-in our CSV and map that data to an array.
+  $csv = array_map('str_getcsv', file($md_file));
+  // Drush options. Deprecated or under-appreciated, one or the other.
+  $id_option = $options['identifier'];
+  $ingest = $options['ingest'];
+  // The default ingest collection for all scrapbooks.
+  $alumnae_scrapbook_collection = variable_get('bc_islandora_scrapbook_pid', 'BC15:0');
+  // The file extensions that should be treated as archival objects for ingest.
+  $object_allowed_exts = ['tif', 'tiff'];
+
+  // CSV row processor.
+  foreach ($csv as $row) {
+    // "xpath" our csv to an associative array.
+    $object_row = _map_rg15_csv_rows($row);
+    $object_split = preg_split("(:|_)", $object_row['id']);
+    $object_namespace = $object_split[0];
+    $alum_collection_pid = "$object_namespace:0";
+    $object_unique_name = isset($object_split[1]) ? $object_split[1] : BARNARD_SINGLE_OBJECT_COLLECTION;
+
+    // Skip this row if we got an id option and this id doesn't match.
+    if ($id_option && $id_option != $object_namespace) {
+      drush_log("Skipped due to namespace mismatch: " . $object_row['id'], 'error');
+      continue;
+    }
+
+    $scrapbook_exception = 'BC15-02' === $object_namespace;
+    // We use this more than once. Try to load the alum's collection.
+    $object_collection = islandora_object_load($alum_collection_pid);
+
+    // Alum's collection creation and ingest.
+    // --
+    // We do this for metadata that is applied to the alum's collection.
+    if ($object_unique_name === '0') {
+      if (!$object_collection) {
+        drush_log(dt("Creating parent collection for @object at PID: @parent_collection.",
+          [
+            '@object' => $object_namespace,
+            '@parent_collection' => $alum_collection_pid,
+          ]), 'ok');
+        // Set required parameters for create_simple_object in our array.
+        $object_row['content_model'] = 'islandora:collectionCModel';
+        $object_row['id'] = $object_namespace;
+        $object_row['xml'] = _bc_islandora_rg15_mods($object_row, 'collection');
+        create_simple_object($alum_collection_pid, $object_row, $alumnae_scrapbook_collection);
+      }
+      elseif ($object_collection) {
+        // @todo This should be an option to overwrite, recreate, etc.
+        drush_log(dt("The parent collection for @object already exists: @parent_collection.",
+          [
+            '@object' => $object_namespace,
+            '@parent_collection' => $alum_collection_pid,
+          ]), 'ok');
+      }
+      continue;
+    }
+
+    // Normal object creation.
+    if (!$object_collection) {
+      drush_log(dt("Missing parent collection: @parent_collection for: @object. A collection must be included in your ingest. Skipping @object...",
+        [
+          '@object' => $row['id'],
+          '@parent_collection' => $alum_collection_pid,
+        ]), 'error');
+      continue;
+    }
+
+    // Book and page object creation.
+    $object_path = dirname($md_file) . '/' . $object_row['id'];
+
+    if (!is_dir($object_path)) {
+      drush_log(dt("Could not find @object to ingest at: @path", [
+        '@path' => $object_path,
+        '@object' => $object_row['id'],
+      ]), 'error');
+      return;
+    }
+
+    // Now we begin scouring directories and creating islandora objects.
+    $current_scrapbook_pid = "";
+    $current_book_from_page_num = 0;
+    $current_book_page_num = 0;
+    foreach (scandir($object_path) as $possible_object) {
+      $filepath = "$object_path/$possible_object";
+      $current_file = pathinfo($filepath);
+
+      // Check if we have an allowed OBJECT, not something else (e.g., txt, xml)
+      if (!in_array(strtolower($current_file['extension']), $object_allowed_exts)) {
+        continue;
+      }
+
+      // Make a copy of CSV Row data:
+      // we need to modify some parts depending on the type of object
+      // (e.g., changing title, pagenumb, etc.); that = this.
+      $object_row_copy = $object_row;
+
+      // File name string regex to vars and number of matches.
+      $record_group = $scrapbook_name = $scrapbook_page = $inclusion_id = $inclusion_page = NULL;
+      if ($object_unique_name === BARNARD_SINGLE_OBJECT_COLLECTION) {
+        $matches = sscanf($current_file['filename'], '%[^_]_%d_%d_%d', $record_group, $scrapbook_page, $inclusion_id, $inclusion_page);
+        // This is called LAZINESS. Forgive me. -bravo romeo 2490, out.
+        $matches++;
+      }
+      else {
+        $matches = sscanf($current_file['filename'], '%[^_]_%[^_]_%d_%d_%d', $record_group, $scrapbook_name, $scrapbook_page, $inclusion_id, $inclusion_page);
+      }
+
+
+      // Only valid cases based on file names should be 3 or 5 matches.
+      if (!$matches == 3 || !$matches == 5) {
+        // This signals complete failure. Appropriate error message. -br2490.
+        throw new Exception("File naming convention error. oh jeez.", 1);
+      }
+
+      // Create these variables since we know we have an object and we'll want
+      // to check for MODS, OCR, etc., files that go along with it.
+      $mods_file = "$object_path/${current_file['filename']}.xml";
+      // Unfortunately we end up testing if the mod file exists several times,
+      // so rather than that, save it here:
+      $mods_file_found = file_exists($mods_file);
+      $ocr_file = "$object_path/${current_file['filename']}.txt";
+      $page_padded = sprintf("%'.03d", $scrapbook_page);
+      $inclusion_page_padded = isset($inclusion_page) ? sprintf("%'.03d", $inclusion_page) : NULL;
+
+      // Book creation begins here.
+      // --
+      // The first page of each object signals make a book for them to chill in.
+      if ($scrapbook_page !== $current_book_from_page_num) {
+        $current_book_from_page_num = $scrapbook_page;
+        // Start a counter of the pagse going in.
+        $current_book_page_num = 1;
+        $object_row_copy['content_model'] = 'islandora:bookCModel';
+        if ($mods_file_found) {
+          drush_log("Found XML mods file for: " . $object_row_copy['id'], 'ok');
+          $object_row_copy['xml'] = file_get_contents($mods_file);
+        }
+        else {
+          drush_log("Building RG15 book MODS for: ${object_row_copy['id']}", 'ok');
+          $object_row_copy['title'] = "${object_row['title']}, page $page_padded";
+          $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'book');
+        }
+
+        $current_scrapbook_pid = create_simple_object($object_namespace, $object_row_copy, $alum_collection_pid);
+        drush_log("SUCCESS! scrapbook pid: $current_scrapbook_pid", 'ok');
+      }
+      // Book creation has ended.
+      // Page creation begins here.
+      $object_row_copy['content_model'] = 'islandora:pageCModel';
+      $object_row_copy['mime_label'] = 'TIFF Image';
+      $object_row_copy['mime_type'] = 'image/tiff';
+      $object_row_copy['ocr'] = file_exists($ocr_file) ? $ocr_file : '';
+      // Set the destination of this page based on the number of matches.
+      // Build out the MODs records for pages - we currently do NOT look
+      // for .xml files at the page level. MODs at this level are scripted.
+      $dest = $current_scrapbook_pid;
+
+      if ($matches == 3) {
+        $object_row_copy['id'] = "${object_row_copy['id']}_$page_padded";
+        $object_row_copy['page_number'] = $current_book_page_num;
+        $object_row_copy['title'] = "${object_row['title']}, page $scrapbook_page";
+        drush_log("Building RG15 page MODS for: ${object_row_copy['id']} Page: $scrapbook_page Current: $current_book_page_num", 'ok');
+        $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'page');
+        drush_log("Scrapbook page: $page_padded -> destination: $dest", 'ok');
+      }
+      else {
+        $object_row_copy['id'] = "${object_row_copy['id']}_{$page_padded}_inclusion_{$inclusion_id}_$inclusion_page_padded";
+        $object_row_copy['page_number'] = $current_book_page_num;
+        $object_row_copy['title'] = ($scrapbook_exception) ? "${object_row['title']}, page $page_padded, Inclusion $inclusion_id, page $inclusion_page" : "${object_row['title']}, page $scrapbook_page, Inclusion $inclusion_id, page $inclusion_page";
+        drush_log("Building RG15 inclusion MODS for: ${object_row_copy['id']} Page: $scrapbook_page Inclusion: $inclusion_id Page: $inclusion_page", 'ok');
+        $object_row_copy['xml'] = _bc_islandora_rg15_mods($object_row_copy, 'inclusion_page');
+        drush_log("Inclusion page: $inclusion_page_padded -> destination: $dest", 'ok');
+      }
+      // Now actually create the dang page!
+      create_complete_object($object_namespace, $object_row_copy, $dest, $filepath);
+      $current_book_page_num++;
+    } // End scandir for objects.
+    drush_log(dt("This was not a compound object or it was an exception (i.e., not allowed)."), 'success');
+  } // End of rows in CSV.
+}
+
 /**
  * Ingests manuscripts.
  */
