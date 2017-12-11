@@ -519,10 +519,12 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
         drush_log("Skipped due to ID mismatch: " . $ms_data['id'], 'error');
         continue;
       }
-      $ms_data_dir = dirname($md_file) . '/' . $ms_data['id'];
+//      $ms_data_dir = dirname($md_file) . '/' . $ms_data['id'];
+      $ms_data_dir = dirname($md_file);
       if (is_dir($ms_data_dir)) {
         $ms_data['title'] = $data[1];
-        $ms_mods_file = $ms_data_dir . '/' . $ms_data['id'] . '.xml';
+//        $ms_mods_file = $ms_data_dir . '/' . $ms_data['id'] . '.xml';
+        $ms_mods_file = $ms_data['id'] . '.xml';
         // If we found an XML file that matches the naming convention, assume
         // it contains the MODS data we want.
         if (file_exists($ms_mods_file)) {
@@ -570,12 +572,21 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
           drush_log(dt('Object exists: @manuscript_ns', ['@manuscript_ns' => $manuscript_ns]), 'ok');
         }
 
-        foreach (scandir($ms_data_dir) as $ms_file) {
+        // Read-in folder contents only once.
+        $directory_files = scandir($ms_data_dir);
+        $ms_pages = preg_grep('/' . $ms_data['id'] .'_(\d{3}).tif/i', $directory_files);
+
+
+        //        foreach (scandir($ms_data_dir) as $ms_file) {
+        foreach ($ms_pages as $ms_file) {
           // Create a page object for each tif file we find.
-          if (preg_match('/\.tif$/', $ms_file)) {
             drush_log("Creating page object for: " . $ms_file, 'ok');
-            $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
-            $page_number = preg_replace('/^0+/', '', $page_padded);
+            preg_match('/(\d{3})\.tif/', $ms_file, $matches);
+
+            // $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
+            // $page_number = preg_replace('/^0+/', '', $page_padded);
+            $page_padded = $matches[1];
+            $page_number = (int) $matches[1];
             $page_pid = $manuscript_ns . '-' . $page_number;
             $filepath = $ms_data_dir . '/' . $ms_file;
             $ms_data['id'] = $data[0] . '_' . $page_padded;
@@ -598,7 +609,7 @@ function _bc_islandora_drush_ingest_manuscript($md_file, $options) {
               drush_log(dt('Object exists: @page_pid', ['@page_pid' => $page_pid]), 'ok');
             }
           }
-        }
+
       }
     }
   }
