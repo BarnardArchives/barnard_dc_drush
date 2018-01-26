@@ -518,7 +518,9 @@ function _bc_islandora_ms_mods($ms_data) {
   if (isset($language_xml)) {
     $mods_xml .= "{$language_xml}";
   }
-  $mods_xml .= "
+  // Updated for S&F.
+  if (isset($ms_data['type']) && $ms_data['type'] == 'page') {
+    $mods_xml .= "
   <subject>
     <name type=\"corporate\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/n79065105\">
       <namePart>Barnard College</namePart>
@@ -531,7 +533,35 @@ function _bc_islandora_ms_mods($ms_data) {
   </subject>
   <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"http://id.loc.gov/authorities/subjects/sh2008001560\">
     <topic>Second-wave feminism</topic>
+  </subject>";
+  } else {
+    $mods_xml .= "
+  <subject>
+    <name type=\"corporate\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/n79065105\">
+        <namePart>Barnard College</namePart>
+    </name>
   </subject>
+  <subject>
+    <name type=\"corporate\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/no90023871\">
+        <namePart>Barnard Center for Research on Women</namePart>
+    </name>
+  </subject>
+  <subject>
+    <name type=\"corporate\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/n98110944\">
+        <namePart>Scholar and the Feminist Conference</namePart>
+    </name>
+  </subject>
+  <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"http://id.loc.gov/authorities/subjects/sh2008001560\">
+    <topic>Second-wave feminism</topic>
+  </subject>
+  <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"http://id.loc.gov/authorities/subjects/sh85083267\">
+    <topic>Meetings</topic>
+  </subject>
+  <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"http://id.loc.gov/authorities/subjects/sh85047741\">
+    <topic>Feminism</topic>
+  </subject>";
+  }
+  $mods_xml .= "
   <relatedItem type=\"host\" displayLabel=\"Record Group\">
     <titleInfo>
       <title>Academic Departments and Programs</title>
@@ -544,6 +574,7 @@ function _bc_islandora_ms_mods($ms_data) {
     <identifier type=\"local\">BC13-58</identifier>
     <typeOfResource>mixed material</typeOfResource>
   </relatedItem>";
+
   if (isset($access_condition_xml)) {
     $mods_xml .= "{$access_condition_xml}";
   }

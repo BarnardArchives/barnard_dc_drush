@@ -35,10 +35,13 @@ require_once 'bc_islandora.drush_mods_data.inc';
  *   Because this documentation is accurate.
  */
 function create_simple_object($pid, array $data, $collection_pid) {
-  $required_variables = array('title', 'content_model', 'xml');
+  $required_variables = ['title', 'content_model', 'xml'];
   foreach ($required_variables as $v) {
     if (!isset($data[$v])) {
-      drush_log(dt('Could not create @pid due to missing required variable: @missing.', array('@pid' => $pid, '@missing' => $v)), 'error');
+      drush_log(dt('Could not create @pid due to missing required variable: @missing.', [
+        '@pid' => $pid,
+        '@missing' => $v,
+      ]), 'error');
       return NULL;
     }
   }
@@ -99,8 +102,7 @@ function create_simple_object($pid, array $data, $collection_pid) {
   try {
     $object->state = 'A';
     $ingest = $repository->ingestObject($object);
-  }
-  catch (Exception $e) {
+  } catch (Exception $e) {
     unset($object);
     throw($e);
   }
@@ -109,10 +111,17 @@ function create_simple_object($pid, array $data, $collection_pid) {
   if ($ingest == TRUE) {
     $ret = $object->id;
     drush_log(dt("create simple object: @type destination: @dest created successfully. PID: @pid",
-      array('@type' => $content_model_type, '@dest' => $pid, '@pid' => $ret)), 'success');
+      [
+        '@type' => $content_model_type,
+        '@dest' => $pid,
+        '@pid' => $ret,
+      ]), 'success');
   }
   else {
-    drush_log(dt("create simple object: @type destination: @dest failed to be created.", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
+    drush_log(dt("create simple object: @type destination: @dest failed to be created.", [
+      '@type' => $content_model_type,
+      '@dest' => $pid,
+    ]), 'warning');
   }
 
   // Make sure destructors are called as this script can run for a long time.
@@ -157,15 +166,23 @@ function create_simple_object($pid, array $data, $collection_pid) {
  * @throws \Exception
  *   Because this documentation is accurate.
  *
- * @todo Change $data['page_number'] since we don't really know what type of OBJ. Make less assumptions.
+ * @todo Change $data['page_number'] since we don't really know what type of
+ *   OBJ. Make less assumptions.
  */
 function create_complete_object($pid, array $data, $collection_pid, $file_path) {
-  $required_variables = array('title', 'content_model', 'xml', 'mime_type',
+  $required_variables = [
+    'title',
+    'content_model',
+    'xml',
+    'mime_type',
     'mime_label',
-  );
+  ];
   foreach ($required_variables as $v) {
     if (!isset($data[$v])) {
-      drush_log(dt('Could not create @pid due to missing required variable: @missing.', array('@pid' => $pid, '@missing' => $v)), 'error');
+      drush_log(dt('Could not create @pid due to missing required variable: @missing.', [
+        '@pid' => $pid,
+        '@missing' => $v,
+      ]), 'error');
       return NULL;
     }
   }
@@ -272,8 +289,7 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
   try {
     $object->state = 'A';
     $ingest = $repository->ingestObject($object);
-  }
-  catch (Exception $e) {
+  } catch (Exception $e) {
     unset($object);
     throw($e);
   }
@@ -282,10 +298,17 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
   if ($ingest == TRUE) {
     $ret = $object->id;
     drush_log(dt("create complete object: @type destination: @dest created successfully. PID: @pid",
-      array('@type' => $content_model_type, '@dest' => $pid, '@pid' => $ret)), 'success');
+      [
+        '@type' => $content_model_type,
+        '@dest' => $pid,
+        '@pid' => $ret,
+      ]), 'success');
   }
   else {
-    drush_log(dt("create complete object: @type destination: @dest failed to be created.", array('@type' => $content_model_type, '@dest' => $pid)), 'warning');
+    drush_log(dt("create complete object: @type destination: @dest failed to be created.", [
+      '@type' => $content_model_type,
+      '@dest' => $pid,
+    ]), 'warning');
   }
 
   // Make sure destructors are called as this script can run for a long time.
@@ -314,10 +337,10 @@ function _bc_islandora_drush_generate_newspaper_csv($directory, $data) {
   $filename .= 'pages.csv';
   $csv_filename = "$directory/$filename";
   $csv = fopen($csv_filename, 'w');
-  $lines = array(
-    array("title", "date", "filename", "page number", "type", "extent"),
-  );
-  $issues = array();
+  $lines = [
+    ["title", "date", "filename", "page number", "type", "extent"],
+  ];
+  $issues = [];
 
   foreach (scandir($directory) as $file) {
     if (mime_content_type("$directory/$file") == 'image/tiff') {
@@ -329,22 +352,23 @@ function _bc_islandora_drush_generate_newspaper_csv($directory, $data) {
         $page = preg_replace('/^0+/', '', str_replace('.tiff', '', end(explode('-', $file))));
         $date_title = date('F j, Y', $ts);
         if ($page == 1) {
-          $lines[] = array(
-            "Barnard Bulletin, " . $date_title, $date_title,
+          $lines[] = [
+            "Barnard Bulletin, " . $date_title,
+            $date_title,
             '',
             '',
             'issue',
             $extent,
-          );
+          ];
         }
-        $lines[] = array(
+        $lines[] = [
           $date_title,
           $date_title,
           $file,
           $page,
           'page',
           $extent,
-        );
+        ];
       }
     }
   }
@@ -420,14 +444,13 @@ function create_issue_object($pid, $data) {
   try {
     $object->state = 'A';
     $ingest = $tuque->repository->ingestObject($object);
-  }
-  catch (Exception $e) {
+  } catch (Exception $e) {
     unset($object);
     throw($e);
   }
 
   if ($ingest == TRUE) {
-    drush_log(dt("Book object @pid created successfully\n", array('@pid' => $pid)), 'success');
+    drush_log(dt("Book object @pid created successfully\n", ['@pid' => $pid]), 'success');
   }
   else {
     drush_log(dt("There was an error creating the book object!\n", 'warning'));
@@ -612,17 +635,16 @@ function create_page_object($file_path, $data, $collection_pid, $page_pid, $type
   try {
     $object->state = 'A';
     $ingest = $connection->repository->ingestObject($object);
-  }
-  catch (Exception $e) {
+  } catch (Exception $e) {
     unset($object);
     throw($e);
   }
 
   if ($ingest == TRUE) {
-    drush_log(dt("Page object @pid created successfully\n", array('@pid' => $object->id)), 'success');
+    drush_log(dt("Page object @pid created successfully\n", ['@pid' => $object->id]), 'success');
   }
   else {
-    drush_log(dt("There was an error creating the page object at @pid.\n", array('@pid' => $object->id)), 'error');
+    drush_log(dt("There was an error creating the page object at @pid.\n", ['@pid' => $object->id]), 'error');
   }
 
   // Make sure destructors are called as this script can run for a long time.
@@ -647,7 +669,10 @@ function _bc_islandora_create_derivatives($objects) {
     $pages = array_keys(islandora_paged_content_get_pages($book));
     $img_batch = bc_islandora_create_images_batch($book, $pages);
     $pdf_batch = bc_islandora_create_pdf_batch($book, $pages);
-    $ocr_batch = islandora_paged_content_create_ocr_batch($book, $pages, array('language' => 'eng', 'preprocess' => FALSE));
+    $ocr_batch = islandora_paged_content_create_ocr_batch($book, $pages, [
+      'language' => 'eng',
+      'preprocess' => FALSE,
+    ]);
     batch_set($img_batch);
     batch_set($pdf_batch);
     batch_set($ocr_batch);
@@ -741,14 +766,13 @@ function create_book_object($pid, $data) {
   try {
     $object->state = 'A';
     $ingest = $tuque->repository->ingestObject($object);
-  }
-  catch (Exception $e) {
+  } catch (Exception $e) {
     unset($object);
     throw($e);
   }
 
   if ($ingest == TRUE) {
-    drush_log(dt("Book object @pid created successfully\n", array('@pid' => $pid)), 'success');
+    drush_log(dt("Book object @pid created successfully\n", ['@pid' => $pid]), 'success');
   }
   else {
     drush_log(dt("There was an error creating the book object!\n", 'warning'));
@@ -766,13 +790,13 @@ function create_book_object($pid, $data) {
 function _bc_islandora_pub_data($xml_file, $pid = '', $type = '', $page_number = '') {
   $xml = file_get_contents($xml_file);
   $mods = simplexml_load_string($xml);
-  $data = array(
+  $data = [
     'cm_pid' => 'islandora:collectionCModel',
     'xml' => $xml,
     'collection_pid' => variable_get('bc_islandora_pubs_pid', 'islandora:1022'),
     'date' => (string) $mods->originInfo->dateCreated,
     'title' => (string) $mods->titleInfo->title,
-  );
+  ];
   if ($type == 'page') {
     $data['genre'] = (string) $mods->genre;
     $data['title_host'] = (string) $mods->titleInfo->title;
@@ -860,17 +884,22 @@ function create_pub_object($pid, $data) {
   try {
     $object->state = 'A';
     $ingest = $tuque->repository->ingestObject($object);
-  }
-  catch (Exception $e) {
+  } catch (Exception $e) {
     unset($object);
     throw($e);
   }
 
   if ($ingest == TRUE) {
-    drush_log(dt("@type object @pid created successfully\n", array('@type' => $content_model_type, '@pid' => $pid)), 'success');
+    drush_log(dt("@type object @pid created successfully\n", [
+      '@type' => $content_model_type,
+      '@pid' => $pid,
+    ]), 'success');
   }
   else {
-    drush_log(dt("Failed to create @type object @pid\n", array('@type' => $content_model_type, '@pid' => $pid)), 'warning');
+    drush_log(dt("Failed to create @type object @pid\n", [
+      '@type' => $content_model_type,
+      '@pid' => $pid,
+    ]), 'warning');
   }
   $return = $object->id;
   unset($object);
@@ -880,6 +909,32 @@ function create_pub_object($pid, $data) {
   return $return;
 }
 
+function _map_rg1108_csv_rows(array $data, array $head = []) {
+
+  $ms_data['creator'] = $data[2];
+  $ms_data['creator_uri'] = $data[3];
+  $ms_data['creator1'] = $data[4];
+  $ms_data['creator1_uri'] = $data[5];
+  $ms_data['creator2'] = $data[6];
+  $ms_data['creator2_uri'] = $data[7];
+  $ms_data['creator3'] = $data[8];
+  $ms_data['creator3_uri'] = $data[9];
+  $ms_data['resource_type'] = $data[10];
+  $ms_data['genre'] = $data[11];
+  $ms_data['genre_uri'] = $data[12];
+  $ms_data['date'] = $data[13];
+  // $ms_data['date_qualifier'] = $data[14];
+  // NB start and end date only present if date is approx range...
+  $ms_data['date_start'] = $data[15];
+  $ms_data['date_end'] = $data[16];
+  $ms_data['extent'] = $data[17];
+  $ms_data['description'] = $data[18];
+  $ms_data['location'] = $data[19];
+  $ms_data['topic'] = $data[20];
+  $ms_data['topic_uri'] = $data[21];
+
+  return $ms_data;
+}
 
 /**
  * Simple CSV row mapping based on the header of each row.
@@ -952,10 +1007,25 @@ function _map_rg15_csv_rows(array $data, array $head = []) {
  */
 function _map_csv_row_to_array(array $data, array $head) {
   $permitted_row_titles = [
-    'id', 'title', 'creator_name', 'creator_uri', 'resource_type', 'genre',
-    'genre_uri', 'date_exact', 'date_start_approx', 'date_end_approx',
-    'date_start_exact', 'date_end_exact', 'extent', 'description', 'location',
-    'related_item_title', 'related_item_pid', 'topics_topic', 'topics_uri',
+    'id',
+    'title',
+    'creator_name',
+    'creator_uri',
+    'resource_type',
+    'genre',
+    'genre_uri',
+    'date_exact',
+    'date_start_approx',
+    'date_end_approx',
+    'date_start_exact',
+    'date_end_exact',
+    'extent',
+    'description',
+    'location',
+    'related_item_title',
+    'related_item_pid',
+    'topics_topic',
+    'topics_uri',
   ];
   $mandatory_row_titles = ['id', 'title'];
 
