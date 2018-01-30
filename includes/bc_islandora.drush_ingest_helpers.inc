@@ -199,7 +199,7 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
   $content_model_type = $data['content_model'];
   $mime_type = $data['mime_type'];
   $mime_label = $data['mime_label'];
-  $page_number = $data['page_number'];
+  isset($data['page_number']) ? $page_number = $data['page_number'] : NULL;
   $file_name = $file_path;
 
   // Ingest a thumbnail of the first page to the parent object.
@@ -231,11 +231,12 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
   // Begin FEDORA and ISLANDORA relationships.
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
-  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
+//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
+//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
+//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
+//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
+
 
   // DC Transform:
   $transform_xsl = new DOMDocument();

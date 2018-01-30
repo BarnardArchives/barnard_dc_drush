@@ -506,10 +506,10 @@ function _bc_islandora_ms_mods($ms_data) {
     $mods_xml .= "$extent_xml";
   }
   if (isset($description_xml)) {
-    $mods_xml .= "{$description_xml}";
+    $mods_xml .= "$description_xml";
   }
   if (isset($location_xml)) {
-    $mods_xml .= "{$location_xml}";
+    $mods_xml .= "$location_xml";
   }
   $mods_xml .= "
   <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"{$ms_data['topic_uri']}\">
@@ -533,7 +533,8 @@ function _bc_islandora_ms_mods($ms_data) {
   </subject>
   <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"http://id.loc.gov/authorities/subjects/sh2008001560\">
     <topic>Second-wave feminism</topic>
-  </subject>";
+  </subject>
+  ";
   } else {
     $mods_xml .= "
   <subject>
@@ -559,7 +560,8 @@ function _bc_islandora_ms_mods($ms_data) {
   </subject>
   <subject authority=\"lcsh\" authorityURI=\"http://id.loc.gov/authorities/subjects\" valueURI=\"http://id.loc.gov/authorities/subjects/sh85047741\">
     <topic>Feminism</topic>
-  </subject>";
+  </subject>
+  ";
   }
   $mods_xml .= "
   <relatedItem type=\"host\" displayLabel=\"Record Group\">
@@ -573,7 +575,8 @@ function _bc_islandora_ms_mods($ms_data) {
     </titleInfo>
     <identifier type=\"local\">BC13-58</identifier>
     <typeOfResource>mixed material</typeOfResource>
-  </relatedItem>";
+  </relatedItem>
+  ";
 
   if (isset($access_condition_xml)) {
     $mods_xml .= "{$access_condition_xml}";
