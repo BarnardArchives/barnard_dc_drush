@@ -251,11 +251,11 @@ PID;
   </titleInfo>
 TITLE;
 
-  $resource_type_xml = <<<TYPE
+  $resource_type_xml = <<<'TYPE'
   <typeOfResource>text</typeOfResource>
 TYPE;
 
-  $genre_xml = <<<GENRE
+  $genre_xml = <<<'GENRE'
   <genre authority="aat" authorityURI="http://vocab.getty.edu/aat" valueURI="http://vocab.getty.edu/aat/300026657">periodicals</genre>
 GENRE;
 
@@ -313,7 +313,7 @@ DATESTR;
 DATESTR;
   }
 
-  $related_item_xml = <<<RELATEDITEM
+  $related_item_xml = <<<'RELATEDITEM'
   <relatedItem type="host" displayLabel="Record Group">
     <titleInfo>
       <title>Administrative Publications</title>
@@ -340,13 +340,13 @@ RELATEDITEM;
    <publisher>Online collection published by Barnard Archives and Special Collections, Barnard College.</publisher>
 ORIGININFO;
 
-    $extent_xml = <<<'PDESCRIP'
+    $extent_xml = <<<PDESCRIP
   <physicalDescription>
     <form authority="marcform">print</form>
     <form authority="marcform">electronic</form>
     <extent>${mods_data['extent']}</extent>
     <digitalOrigin>reformatted digital</digitalOrigin>
-    <internetMediaType>image/tiff</internetMediaType>
+    <internetMediaType>image/jp2</internetMediaType>
   </physicalDescription>
 PDESCRIP;
 
@@ -359,7 +359,7 @@ PDESCRIP;
   </name>
 CREATE;
 
-    $description_xml = <<<'ABSTRACT'
+    $description_xml = <<<ABSTRACT
   <abstract>${mods_data['description']}</abstract>
 ABSTRACT;
 
@@ -370,7 +370,7 @@ ABSTRACT;
   </language>
 LANG;
 
-    $access_condition_xml = <<<'ACCESSCONDITION'
+    $access_condition_xml = <<<ACCESSCONDITION
   <accessCondition type="useAndReproduction">${mods_data['useAndReproduction']}</accessCondition>
   <accessCondition type="local rights statements">${mods_data['accesscondition_local']}</accessCondition>
 ACCESSCONDITION;

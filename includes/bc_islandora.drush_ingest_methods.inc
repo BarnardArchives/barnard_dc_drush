@@ -515,6 +515,7 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
   }
 
   $recordgroup_namespace = 'BC11-08';
+  $recordgroup_collection = "$recordgroup_namespace:0"; // should be a lookup.
 
   // Read-in our CSV and map that data to an array.
   $csv = array_map('str_getcsv', file($md_file));
@@ -561,7 +562,7 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
 
     $object_row['content_model'] = 'islandora:bookCModel';
 
-    $book_pid = create_simple_object($recordgroup_namespace, $object_row, $recordgroup_namespace);
+    $book_pid = create_simple_object($recordgroup_namespace, $object_row, $recordgroup_collection);
 
     if (islandora_object_load($book_pid)) {
       drush_log("Creating pages for: " . $object_row['id'], 'ok');
@@ -600,8 +601,8 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
       $this_object['xml'] = _bc_islandora_rg1108_mods($this_object, 'page');
 
       /// $book_pid
-      create_complete_object($recordgroup_namespace, $this_object, $book_pid, $file);
-      drush_log("Page: $page_padded -> destination: $book_pid", 'ok');
+      $pid = create_complete_object($recordgroup_namespace, $this_object, $book_pid, $file);
+      drush_log("Page: $page_padded (PID $pid) -> destination: $book_pid", 'ok');
 
     }
   }

@@ -34,7 +34,7 @@ require_once 'bc_islandora.drush_mods_data.inc';
  * @throws \Exception
  *   Because this documentation is accurate.
  */
-function create_simple_object($pid, array $data, $collection_pid) {
+function create_simple_object($pid, array $data, $collection_pid, $membership = TRUE) {
   $required_variables = ['title', 'content_model', 'xml'];
   foreach ($required_variables as $v) {
     if (!isset($data[$v])) {
@@ -61,7 +61,13 @@ function create_simple_object($pid, array $data, $collection_pid) {
 
   // Begin FEDORA and ISLANDORA relationships.
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
-  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+  if ($membership) {
+    $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $collection_pid);
+  }
+  else {
+    $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+  }
+
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
   if ($content_model_type === 'islandora:collectionCModel') {
