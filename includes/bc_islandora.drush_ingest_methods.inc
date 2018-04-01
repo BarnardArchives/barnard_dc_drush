@@ -560,8 +560,7 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
     }
 
     $object_row['content_model'] = 'islandora:bookCModel';
-    $object_row['mime_label'] = 'JPEG 2000 Image';
-    $object_row['mime_type'] = 'image/jp2';
+
     $book_pid = create_simple_object($recordgroup_namespace, $object_row, $recordgroup_namespace);
 
     if (islandora_object_load($book_pid)) {
@@ -572,13 +571,15 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
       return FALSE;
     }
 
-    // Pages.
+    $object_row = $rows;
     $object_row['content_model'] = 'islandora:pageCModel';
+    $object_row['mime_label'] = 'JPEG 2000 Image';
+    $object_row['mime_type'] = 'image/jp2';
     foreach (scandir($object_path) as $possible_object) {
       $this_object = $object_row;
 
-      $filepath = "$object_path/$possible_object";
-      $current_file = pathinfo($filepath);
+      $file = "$object_path/$possible_object";
+      $current_file = pathinfo($file);
 
       // Check if we have an allowed OBJECT, not something else (e.g., txt, xml)
       if (!in_array(strtolower($current_file['extension']), $object_allowed_exts)) {
@@ -599,7 +600,7 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
       $object_data['xml'] = _bc_islandora_rg1108_mods($this_object, 'page');
 
       /// $book_pid
-      create_complete_object($recordgroup_namespace, $object_data, $book_pid, $filepath);
+      create_complete_object($recordgroup_namespace, $this_object, $book_pid, $file);
       drush_log("Page: $page_padded -> destination: $book_pid", 'ok');
 
     }
