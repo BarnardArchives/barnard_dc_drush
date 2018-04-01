@@ -597,7 +597,7 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
       $ocr_file = "$object_path/${current_file['filename']}.txt";
       $this_object['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
       drush_log("Building RG15 page MODS for: ${$this_object['id']} Page: $page_number", 'ok');
-      $object_data['xml'] = _bc_islandora_rg1108_mods($this_object, 'page');
+      $this_object['xml'] = _bc_islandora_rg1108_mods($this_object, 'page');
 
       /// $book_pid
       create_complete_object($recordgroup_namespace, $this_object, $book_pid, $file);
