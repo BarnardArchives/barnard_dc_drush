@@ -229,6 +229,196 @@ MODS;
 }
 
 /**
+ * Generates Scrapbook MODS records: RG: BC11-08.
+ *
+ * @author Ben Rosner, all blame to: brosner@barnard.edu
+ *
+ * CSV Row processor for Barnard College Alumnae Scrapbooks.
+ * The formatting of this section is purposeful.
+ * Pay attention to spacing in the creation of variables.
+ *
+ * We use single quote literals for static content, and heredoc strings for
+ * dynamic content. We also use heredoc to gen the final MODs string.
+ */
+function _bc_islandora_rg1108_mods($mods_data, $type) {
+  $identifier_xml = <<<PID
+  <identifier type="local">${mods_data['id']}</identifier>
+PID;
+
+  $titleinfo_title_xml = <<<TITLE
+  <titleInfo>
+    <title>${mods_data['title']}</title>
+  </titleInfo>
+TITLE;
+
+  $resource_type_xml = <<<TYPE
+  <typeOfResource>text</typeOfResource>
+TYPE;
+
+  $genre_xml = <<<GENRE
+  <genre authority="aat" authorityURI="http://vocab.getty.edu/aat" valueURI="http://vocab.getty.edu/aat/300026657">periodicals</genre>
+GENRE;
+
+  // Topics - mods:subject.
+  $subject_xml = <<<'BLANKETSUBJ'
+  <subject>
+    <name type="corporate" authority="naf" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/n79065105">
+      <namePart>Barnard College</namePart>
+    </name>
+  </subject>
+  <subject>
+    <name type="corporate" authority="local">
+      <namePart>Barnard College. Office of Alumnae Relations.</namePart>
+    </name>
+  </subject>
+  <subject>
+    <name type="corporate" authority="naf" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/n84099300">
+      <namePart>Barnard College. Associate Alumnae</namePart>
+    </name>
+  </subject>
+
+  <subject authority="lcsh" authorityURI="http://id.loc.gov/authorities/subjects" valueURI="http://id.loc.gov/authorities/subjects/sh85141093">
+    <topic>Universities and colleges--Alumni and alumnae</topic>
+  </subject>
+  <subject authority="lcsh" authorityURI="http://id.loc.gov/authorities/subjects" valueURI="http://id.loc.gov/authorities/subjects/sh85028302">
+    <topic>College graduates</topic>
+  </subject>
+BLANKETSUBJ;
+
+  // Origin info, loc, date, etc.
+  $origin_info_xml = <<<'ORIGINSTART'
+  <originInfo>
+ORIGINSTART;
+
+  if (!empty($mods_data['date_start_approx']) && !empty($mods_data['date_end_approx'])) {
+    $origin_date_info_xml = <<<DATESTR
+    <dateCreated encoding="w3cdtf" keyDate="yes" point="start" qualifier="approximate">${mods_data['date_start_approx']}</dateCreated>
+    <dateCreated encoding="w3cdtf" point="end" qualifier="approximate">${mods_data['date_end_approx']}</dateCreated>
+  </originInfo>
+DATESTR;
+  }
+  elseif (!empty($mods_data['date_start_exact']) && !empty($mods_data['date_end_exact'])) {
+    // Exact Date range.
+    $origin_date_info_xml = <<<DATESTR
+    <dateCreated encoding="w3cdtf" keyDate="yes" point="start">${mods_data['date_start_exact']}</dateCreated>
+    <dateCreated encoding="w3cdtf" point="end">${mods_data['date_end_exact']}</dateCreated>
+  </originInfo>
+DATESTR;
+  }
+  else {
+    // Exact date, single.
+    $origin_date_info_xml = <<<DATESTR
+    <dateCreated encoding="w3cdtf" keyDate="yes">${mods_data['date_exact']}</dateCreated>
+  </originInfo>
+DATESTR;
+  }
+
+  $related_item_xml = <<<RELATEDITEM
+  <relatedItem type="host" displayLabel="Record Group">
+    <titleInfo>
+      <title>Administrative Publications</title>
+    </titleInfo>
+  </relatedItem>
+  <relatedItem type="host">
+    <titleInfo>
+      <title>Alumnae Magazine</title>
+    </titleInfo>
+    <identifier type="local">BC11-08</identifier>
+    <typeOfResource>mixed material</typeOfResource>
+  </relatedItem>
+RELATEDITEM;
+
+  if ($type !== 'page') {
+
+    $origin_info_xml .= <<<'ORIGININFO'
+   <place>
+     <placeTerm type="text" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/n79007751">New York (N.Y.)</placeTerm>
+   </place>
+   <place>
+     <placeTerm type="code" authority="marccountry">nyu</placeTerm>
+   </place>
+   <publisher>Online collection published by Barnard Archives and Special Collections, Barnard College.</publisher>
+ORIGININFO;
+
+    $extent_xml = <<<'PDESCRIP'
+  <physicalDescription>
+    <form authority="marcform">print</form>
+    <form authority="marcform">electronic</form>
+    <extent>${mods_data['extent']}</extent>
+    <digitalOrigin>reformatted digital</digitalOrigin>
+    <internetMediaType>image/tiff</internetMediaType>
+  </physicalDescription>
+PDESCRIP;
+
+    $creator_xml = <<<'CREATE'
+  <name type="corporate" authority="naf" authorityURI="http://id.loc.gov/authorities/names" valueURI="http://id.loc.gov/authorities/names/n79065105">
+    <namePart>Barnard College</namePart>
+     <role>
+        <roleTerm type="text" authority="marcrelator">Publisher</roleTerm>
+    </role>
+  </name>
+CREATE;
+
+    $description_xml = <<<'ABSTRACT'
+  <abstract>${mods_data['description']}</abstract>
+ABSTRACT;
+
+    $language_xml = <<<'LANG'
+  <language>
+    <languageTerm type="text">English</languageTerm>
+    <languageTerm type="code" authority="iso639-2b">eng</languageTerm>
+  </language>
+LANG;
+
+    $access_condition_xml = <<<'ACCESSCONDITION'
+  <accessCondition type="useAndReproduction">${mods_data['useAndReproduction']}</accessCondition>
+  <accessCondition type="local rights statements">${mods_data['accesscondition_local']}</accessCondition>
+ACCESSCONDITION;
+
+    $record_info_xml = <<<'RSOURCE'
+  <recordInfo>
+    <recordContentSource>Barnard Archives and Special Collections</recordContentSource>
+    <recordContentSource authority="marcorg">NNC</recordContentSource>
+    <recordContentSource authority="marcorg">NyNyBAW</recordContentSource>
+    <languageOfCataloging>
+      <languageTerm type="text" authority="iso639-2b">English</languageTerm>
+      <languageTerm type="code" authority="iso639-2b">eng</languageTerm>
+    </languageOfCataloging>
+  </recordInfo>
+RSOURCE;
+  }
+
+
+  // Build the final return mods record. Better hope you intended everything.
+  $mods_xml = <<<MODS
+<mods xmlns="http://www.loc.gov/mods/v3" xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/mods/v3/mods-3-5.xsd">
+
+{$identifier_xml}
+{$titleinfo_title_xml}
+{$creator_xml}
+{$resource_type_xml}
+{$genre_xml}
+{$origin_info_xml}
+{$origin_date_info_xml}
+{$extent_xml}
+{$description_xml}
+{$language_xml}
+{$subject_xml}
+{$related_item_xml}
+{$record_info_xml}
+{$access_condition_xml}
+
+</mods>
+MODS;
+
+  // Normalize (correct xml formatting if necessary).
+  $ret = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $mods_xml);
+
+  return $ret;
+}
+
+
+/**
  * Generates newspaper issue metadata.
  */
 function _bc_islandora_drush_np_issue_mods($title, $extent, $date, $date_short) {
@@ -466,13 +656,13 @@ function _bc_islandora_ms_mods($ms_data) {
   }
 
   // @INFO Note that the first creator variable has no number.
-  $creators = array('creator', 'creator1', 'creator2', 'creator3');
+  $creators = ['creator', 'creator1', 'creator2', 'creator3'];
   $creator_xml = "";
   foreach ($creators as $creator) {
     if (!empty($ms_data[$creator])) {
-      $creator_xml .= isset($ms_data[$creator.'_uri']) && !empty($ms_data[$creator.'_uri']) ?
-      "<name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$ms_data[$creator.'_uri']}\">" :
-      "<name type=\"personal\" authority=\"local\">";
+      $creator_xml .= isset($ms_data[$creator . '_uri']) && !empty($ms_data[$creator . '_uri']) ?
+        "<name type=\"personal\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"{$ms_data[$creator.'_uri']}\">" :
+        "<name type=\"personal\" authority=\"local\">";
       $creator_xml .= "
       <namePart>{$ms_data[$creator]}</namePart>
       <role>
@@ -535,7 +725,8 @@ function _bc_islandora_ms_mods($ms_data) {
     <topic>Second-wave feminism</topic>
   </subject>
   ";
-  } else {
+  }
+  else {
     $mods_xml .= "
   <subject>
     <name type=\"corporate\" authority=\"naf\" authorityURI=\"http://id.loc.gov/authorities/names\" valueURI=\"http://id.loc.gov/authorities/names/n79065105\">

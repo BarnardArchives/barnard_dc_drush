@@ -232,10 +232,10 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
-//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
-//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
-//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
-//  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageOf', $collection_pid);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSequenceNumber', $page_number);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isPageNumber', $page_number);
+  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
 
 
   // DC Transform:
@@ -911,30 +911,16 @@ function create_pub_object($pid, $data) {
 }
 
 function _map_rg1108_csv_rows(array $data, array $head = []) {
+  $ret['id'] = $data[0];
+  $ret['title'] = $data[1];
+  $ret['date_exact'] = $data[2];
+  $ret['extent'] = $data[3];
+  $ret['description'] = $data[4];
+  $ret['useAndReproduction'] = $data[5];
+  $ret['accesscondition_local'] = $data[6];
+  $ret['volume'] = $data[7];
 
-  $ms_data['creator'] = $data[2];
-  $ms_data['creator_uri'] = $data[3];
-  $ms_data['creator1'] = $data[4];
-  $ms_data['creator1_uri'] = $data[5];
-  $ms_data['creator2'] = $data[6];
-  $ms_data['creator2_uri'] = $data[7];
-  $ms_data['creator3'] = $data[8];
-  $ms_data['creator3_uri'] = $data[9];
-  $ms_data['resource_type'] = $data[10];
-  $ms_data['genre'] = $data[11];
-  $ms_data['genre_uri'] = $data[12];
-  $ms_data['date'] = $data[13];
-  // $ms_data['date_qualifier'] = $data[14];
-  // NB start and end date only present if date is approx range...
-  $ms_data['date_start'] = $data[15];
-  $ms_data['date_end'] = $data[16];
-  $ms_data['extent'] = $data[17];
-  $ms_data['description'] = $data[18];
-  $ms_data['location'] = $data[19];
-  $ms_data['topic'] = $data[20];
-  $ms_data['topic_uri'] = $data[21];
-
-  return $ms_data;
+  return $ret;
 }
 
 /**

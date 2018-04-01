@@ -514,6 +514,8 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
     return FALSE;
   }
 
+  $recordgroup_namespace = 'BC11-08';
+
   // Read-in our CSV and map that data to an array.
   $csv = array_map('str_getcsv', file($md_file));
   // Drush options. Deprecated or under-appreciated, one or the other.
@@ -529,46 +531,53 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
     $object_row = $rows;
 
     // Skip this row if we got an id option and this id doesn't match.
-    if ($id_option && $id_option != $object_row[0]) {
+    if ($id_option && $id_option != $object_row['id']) {
       drush_log("Skipped due to ID mismatch:  ${object_row['id']}", 'error');
       continue;
     }
 
-    $data_dir = dirname($md_file) . '/' . $object_row;
+    $object_path = dirname($md_file) . "/${object_row['id']}";
 
-    if (!is_dir($data_dir)) {
-      // No folder!
-      continue;
+    if (!is_dir($object_path)) {
+      drush_log(dt("Could not find @object to ingest at: @path", [
+        '@path' => $object_path,
+        '@object' => $object_row['id'],
+      ]), 'error');
+      return FALSE;
+      // Error state.
     }
 
-    $object_mods_file = $data_dir . '.xml';
+    $object_mods_file = "$object_path/${object_row['id']}.xml";
 
     if (file_exists($object_mods_file)) {
       drush_log("Found XML mods file for: ${object_row['id']}", 'ok');
       $object_row['xml'] = file_get_contents($object_mods_file);
     }
-    // Otherwise, generate MODS using the other csv fields.
+    // Otherwise, generate MODS using the csv fields.
     else {
       drush_log("Building mods from CSV MD file for: " . $object_row['id'], 'ok');
-      $object_row['xml'] = _bc_islandora_ms_mods($object_row);
+      $object_row['xml'] = _bc_islandora_rg1108_mods($object_row, 'book');
     }
 
-    $manuscript_ns = 'CHANGEME';
+    $object_row['content_model'] = 'islandora:bookCModel';
+    $object_row['mime_label'] = 'JPEG 2000 Image';
+    $object_row['mime_type'] = 'image/jp2';
+    $book_pid = create_simple_object($recordgroup_namespace, $object_row, $recordgroup_namespace);
 
-    // Create a new pub for all files using next available INT in namespace.
-    if (!islandora_object_load($manuscript_ns)) {
-      drush_log("Creating publication object for: " . $object_row['id'], 'ok');
-      $object_row['collection_pid'] = variable_get('bc_islandora_manuscripts_pid', 'islandora:manuscriptCollection');
-      $object_row['cm_pid'] = 'islandora:manuscriptCModel';
-
-      $ms_parent_pid = create_pub_object($manuscript_ns, $object_row);
+    if (islandora_object_load($book_pid)) {
+      drush_log("Creating pages for: " . $object_row['id'], 'ok');
     }
     else {
-      drush_log(dt('Object exists: @manuscript_ns', ['@manuscript_ns' => $manuscript_ns]), 'ok');
+      // failure.
+      return FALSE;
     }
 
-    foreach (scandir($data_dir) as $possible_object) {
-      $filepath = "$data_dir/$possible_object";
+    // Pages.
+    $object_row['content_model'] = 'islandora:pageCModel';
+    foreach (scandir($object_path) as $possible_object) {
+      $this_object = $object_row;
+
+      $filepath = "$object_path/$possible_object";
       $current_file = pathinfo($filepath);
 
       // Check if we have an allowed OBJECT, not something else (e.g., txt, xml)
@@ -578,30 +587,21 @@ function _bc_islandora_drush_ingest_rgBC1108($md_file, $options) {
 
       drush_log("Creating page object for: " . $possible_object, 'ok');
 
-      // $page_padded = str_replace('.tif', '', array_pop(explode('_', $ms_file)));
-      // $page_number = preg_replace('/^0+/', '', $page_padded);
-      $page_padded = $matches[1];
-      $page_number = (int) $matches[1];
-      $page_pid = $manuscript_ns . '-' . $page_number;
-      $ms_data['id'] = $data[0] . '_' . $page_padded;
-      $ms_data['page_number'] = $page_number;
-      $ms_data['title'] = $data[1] . ', page ' . $page_number;
-      $ms_data['cm_pid'] = $manuscript_ns;
-      $ms_data['type'] = 'page';
-      $ms_data['xml'] = _bc_islandora_ms_mods($ms_data);
+      $record_group = $volume_id = $issue_id = $page_number = NULL;
+      $matches = sscanf($current_file['filename'], '%[^_]_%d-%d_%d', $record_group, $volume_id, $issue_id, $page_number);
+      $page_padded = sprintf("%'.03d", $page_number);
+      $this_object['id'] = "${object_row['id']}_$page_padded";
+      $this_object['page_number'] = $page_number;
+      $this_object['title'] = "${object_row['title']}, page $page_number";
+      $ocr_file = "$object_path/${current_file['filename']}.txt";
+      $this_object['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+      drush_log("Building RG15 page MODS for: ${$this_object['id']} Page: $page_number", 'ok');
+      $object_data['xml'] = _bc_islandora_rg1108_mods($this_object, 'page');
 
-      // Check if a text file is present as OCR.
-      $ocr_file = $data_dir . '/' . str_replace('.tif', '.txt', $possible_object);
-      $ms_data['ocr'] = file_exists($ocr_file) ? $ocr_file : "";
+      /// $book_pid
+      create_complete_object($recordgroup_namespace, $object_data, $book_pid, $filepath);
+      drush_log("Page: $page_padded -> destination: $book_pid", 'ok');
 
-      // TODO this is redundant now. Find another way to check if page
-      // exists?
-      if (!islandora_object_load($page_pid)) {
-        create_page_object($data_dir . '/' . $possible_object, $ms_data, $ms_parent_pid, $manuscript_ns, 'ms');
-      }
-      else {
-        drush_log(dt('Object exists: @page_pid', ['@page_pid' => $page_pid]), 'ok');
-      }
     }
   }
 }
@@ -630,8 +630,8 @@ function _bc_islandora_drush_ingest_schandthefem($md_file, $options) {
         $ms_pdf_file = "$ms_data_dir/${ms_data['id']}.pdf";
         // If we found an XML file that matches the naming convention, assume
         // it contains the MODS data we want.
-        drush_log("$ms_pdf_file",'warn');
-        if (file_exists($ms_mods_file) && file_exists($ms_pdf_file)){
+        drush_log("$ms_pdf_file", 'warn');
+        if (file_exists($ms_mods_file) && file_exists($ms_pdf_file)) {
           drush_log("Found XML mods file for: " . $ms_data['id'], 'ok');
           $ms_data['xml'] = file_get_contents($ms_mods_file);
         }
