@@ -321,7 +321,7 @@ DATESTR;
   </relatedItem>
   <relatedItem type="host">
     <titleInfo>
-      <title>Alumnae Magazine</title>
+      <title>Barnard Magazine</title>
     </titleInfo>
     <identifier type="local">BC11-08</identifier>
     <typeOfResource>mixed material</typeOfResource>

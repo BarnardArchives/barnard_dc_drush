@@ -61,12 +61,12 @@ function create_simple_object($pid, array $data, $collection_pid, $membership = 
 
   // Begin FEDORA and ISLANDORA relationships.
   $object->relationships->add(FEDORA_MODEL_URI, 'hasModel', $content_model_type);
-  if ($membership) {
-    $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $collection_pid);
-  }
-  else {
-    $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
-  }
+//  if ($membership) {
+//    $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $collection_pid);
+//  }
+//  else {
+  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOf', $collection_pid);
+//  }
 
   $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'hasLanguage', 'eng');
 
