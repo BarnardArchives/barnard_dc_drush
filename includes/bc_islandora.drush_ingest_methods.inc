@@ -70,7 +70,6 @@ function _bc_islandora_drush_ingest_rgBC1358_audio($md_file, $options) {
   variable_set('islandora_audio_defer_derivatives_on_ingest', $original_setting);
 }
 
-
 /**
  * Record Group BC15: Alumnae Scrapbooks, ingest method.
  *

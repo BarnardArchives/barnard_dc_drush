@@ -254,6 +254,7 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
 //  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
 
 
+
   // DC Transform:
   $transform_xsl = new DOMDocument();
   $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
@@ -961,6 +962,7 @@ function _map_rg1108_csv_rows(array $data, array $head = []) {
  *
  * @return array
  *   Chocolaty goodness.
+<<<<<<< HEAD
  */
 function _map_rg1358_audio_csv_rows(array $data, array $head = []) {
   $object_data_array['id'] = $data[0];
@@ -996,6 +998,8 @@ function _map_rg1358_audio_csv_rows(array $data, array $head = []) {
  *
  * @return array
  *   Chocolaty goodness.
+=======
+>>>>>>> 454b94620f6eda38ce2cf599b3b20f5c6f8736c2
  *
  * @todo header mapping.
  */
