@@ -254,7 +254,6 @@ function create_complete_object($pid, array $data, $collection_pid, $file_path) 
 //  $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'isSection', '1');
 
 
-
   // DC Transform:
   $transform_xsl = new DOMDocument();
   $xsl_file = DRUPAL_ROOT . '/' . drupal_get_path('module', 'islandora_importer') . '/xsl/mods_to_dc.xsl';
@@ -962,28 +961,28 @@ function _map_rg1108_csv_rows(array $data, array $head = []) {
  *
  * @return array
  *   Chocolaty goodness.
-<<<<<<< HEAD
  */
 function _map_rg1358_audio_csv_rows(array $data, array $head = []) {
   $object_data_array['id'] = $data[0];
-  $object_data_array['date_exact'] = $data[1];
-  $object_data_array['title'] = $data[2];
-  $object_data_array['creators'][0]['name'] = $data[3];
-  $object_data_array['creators'][0]['uri'] = $data[4];
-  $object_data_array['creators'][1]['name'] = $data[5];
-  $object_data_array['creators'][1]['uri'] = $data[6];
-  // $data[7] - unused
-  $object_data_array['description'] = $data[8];
-  $object_data_array['topics'][0]['topic'] = $data[9];
-  $object_data_array['topics'][0]['uri'] = $data[10];
-  $object_data_array['topics'][1]['topic'] = $data[11];
-  $object_data_array['topics'][1]['uri'] = $data[12];
-  $object_data_array['topics'][2]['topic'] = $data[13];
-  $object_data_array['topics'][2]['uri'] = $data[14];
-  $object_data_array['topics'][3]['topic'] = $data[15];
-  $object_data_array['topics'][3]['uri'] = $data[16];
+  $object_data_array['title'] = $data[1];
+  $i = 0;
+  for ($creator = 2; $creator <= 13; $creator+=2) {
+    $object_data_array['creators'][$i]['name'] = $data[$creator];
+    $object_data_array['creators'][$i]['uri'] = $data[$creator+1];
+    $i++;
+  }
+  $object_data_array['date_exact'] = $data[14];
+  $object_data_array['extent'] = $data[15];
+  $object_data_array['description'] = $data[16];
   $object_data_array['location'] = $data[17];
-  $object_data_array['extent'] = $data[18];
+  $i = 0;
+  for ($topics = 18; $topics <= 31; $topics+=2) {
+    $object_data_array['topics'][$i]['topic'] = $data[$topics];
+    $object_data_array['topics'][$i]['uri'] = $data[$topics+1];
+    $i++;
+  }
+  unset($i);
+  $object_data_array['access_condition'] = $data[33];
 
   return $object_data_array;
 }
@@ -998,8 +997,6 @@ function _map_rg1358_audio_csv_rows(array $data, array $head = []) {
  *
  * @return array
  *   Chocolaty goodness.
-=======
->>>>>>> 454b94620f6eda38ce2cf599b3b20f5c6f8736c2
  *
  * @todo header mapping.
  */
