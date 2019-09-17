@@ -64,10 +64,10 @@ function _bc_islandora_drush_ingest_rgBC1358_audio($md_file, $options) {
 //      $object_row['transcript'] = $current_transcript;
 //      $object_row['transcript_mime'] = 'application/xml';
 //    } else {
-    $object_row['transcript'] = file_exists($current_text) ? $current_text : '';
+    $object_row['uncorrected_transcript'] = file_exists($current_text) ? $current_text : '';
     $object_row['transcript_mime'] = 'text/plain';
 //    }
-    $object_row['transcript_label'] = "${object_row['id']}_uncorrected_TRANSCRIPT";
+    $object_row['transcript_label'] = "${object_row['id']}_UNCORRECTED_TRANSCRIPT";
 
     $object_row['xml'] = _bc_islandora_rg1358_audio_mods($object_row, 'book');
     file_exists($current_thumb) ? $object_row['thumbnail'] =  $current_thumb : NULL;
